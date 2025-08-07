@@ -9,13 +9,20 @@ public class PlayerMovementController : MonoBehaviour
     private PlayerControls playerControls;
     private Vector2 moveInput;
     private Transform cameraTransform;
+    private Animator animator;
+    private int speedParameterId;
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
         playerControls = new PlayerControls();
         cameraTransform = Camera.main.transform;
+
+        animator = GetComponent<Animator>();
+
+        speedParameterId = Animator.StringToHash("Speed");
     }
+
 
     private void OnEnable()
     {
@@ -34,6 +41,7 @@ public class PlayerMovementController : MonoBehaviour
         moveInput = input;
     }
 
+
     private void FixedUpdate()
     {
         Vector3 moveDirection = cameraTransform.forward * moveInput.y + cameraTransform.right * moveInput.x;
@@ -42,6 +50,11 @@ public class PlayerMovementController : MonoBehaviour
 
         Vector3 newVelocity = moveDirection * moveSpeed;
         rb.velocity = new Vector3(newVelocity.x, rb.velocity.y, newVelocity.z);
+        
+        float speed = new Vector3(rb.velocity.x, 0, rb.velocity.z).magnitude;
+        
+        animator.SetFloat(speedParameterId, speed);
+        // --- END OF NEW LOGIC ---
 
         if (moveDirection != Vector3.zero)
         {
