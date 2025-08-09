@@ -2,16 +2,11 @@ using UnityEngine;
 
 namespace Staggerpoint
 {
-    public class RagdollAnimation : MonoBehaviour
+    public class RagdollAnimation : Module
     {
         private RagdollController _ragdollController;
         private Transform[] _animatedBones;
         private Quaternion[] _initialJointRotations;
-
-        void Awake()
-        {
-            _ragdollController = GetComponent<RagdollController>();
-        }
 
         void Start()
         {
@@ -21,7 +16,7 @@ namespace Staggerpoint
             }
 
             _initialJointRotations = new Quaternion[_ragdollController.Joints.Length];
-            
+
             for (int i = 0; i < _ragdollController.Joints.Length; i++)
             {
                 _initialJointRotations[i] = _ragdollController.Joints[i].targetRotation;

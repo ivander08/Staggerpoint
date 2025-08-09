@@ -8,11 +8,11 @@ namespace Staggerpoint
         [SerializeField] private Animator _animatedAnimator;
         [SerializeField] private Animator _physicalAnimator;
 
-        [SerializeField] private Transform _animatedTorso;
-        public Transform AnimatedTorso { get { return _animatedTorso; } }
+        [SerializeField] private Rigidbody _animatedTorso;
+        public Rigidbody AnimatedTorso { get { return _animatedTorso; } }
 
-        [SerializeField] private Transform _physicalTorso;
-        public Transform PhysicalTorso { get { return _physicalTorso; } }
+        [SerializeField] private Rigidbody _physicalTorso;
+        public Rigidbody PhysicalTorso { get { return _physicalTorso; } }
 
         public ConfigurableJoint[] Joints { get; private set; }
         public Rigidbody[] Rigidbodies { get; private set; }
