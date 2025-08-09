@@ -314,6 +314,18 @@ CapsuleCollider:
   m_Height: 0.2461554
   m_Direction: 1
   m_Center: {x: 0, y: 0.1230777, z: 0}
+--- !u!4 &45073265 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6741096234545788085, guid: a3db6c6e78e7458459790bddd0b9eaad,
+    type: 3}
+  m_PrefabInstance: {fileID: 863732594}
+  m_PrefabAsset: {fileID: 0}
+--- !u!95 &45073266 stripped
+Animator:
+  m_CorrespondingSourceObject: {fileID: 5866666021909216657, guid: a3db6c6e78e7458459790bddd0b9eaad,
+    type: 3}
+  m_PrefabInstance: {fileID: 863732594}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &71067362
 GameObject:
   m_ObjectHideFlags: 0
@@ -323,6 +335,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 71067363}
+  - component: {fileID: 71067364}
   m_Layer: 0
   m_Name: ActiveRagdoll_Player
   m_TagString: Untagged
@@ -347,6 +360,22 @@ Transform:
   - {fileID: 1161614815}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &71067364
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 71067362}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0155bd2727bdc8b438057d1475ba1c54, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _animatedAnimator: {fileID: 519869040}
+  _physicalAnimator: {fileID: 45073266}
+  _animatedTorso: {fileID: 519869039}
+  _physicalTorso: {fileID: 45073265}
 --- !u!1 &203844586
 GameObject:
   m_ObjectHideFlags: 0
@@ -572,6 +601,18 @@ PrefabInstance:
 --- !u!4 &519869038 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: a3db6c6e78e7458459790bddd0b9eaad,
+    type: 3}
+  m_PrefabInstance: {fileID: 519869037}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &519869039 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6741096234545788085, guid: a3db6c6e78e7458459790bddd0b9eaad,
+    type: 3}
+  m_PrefabInstance: {fileID: 519869037}
+  m_PrefabAsset: {fileID: 0}
+--- !u!95 &519869040 stripped
+Animator:
+  m_CorrespondingSourceObject: {fileID: 5866666021909216657, guid: a3db6c6e78e7458459790bddd0b9eaad,
     type: 3}
   m_PrefabInstance: {fileID: 519869037}
   m_PrefabAsset: {fileID: 0}
