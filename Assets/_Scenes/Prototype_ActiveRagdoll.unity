@@ -336,6 +336,7 @@ GameObject:
   m_Component:
   - component: {fileID: 71067363}
   - component: {fileID: 71067364}
+  - component: {fileID: 71067365}
   m_Layer: 0
   m_Name: ActiveRagdoll_Player
   m_TagString: Untagged
@@ -376,6 +377,18 @@ MonoBehaviour:
   _physicalAnimator: {fileID: 45073266}
   _animatedTorso: {fileID: 519869039}
   _physicalTorso: {fileID: 45073265}
+--- !u!114 &71067365
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 71067362}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 99b0e7f904fdd4241913cec6a6497deb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &203844586
 GameObject:
   m_ObjectHideFlags: 0
@@ -878,17 +891,17 @@ PrefabInstance:
     - target: {fileID: 6712026062488473154, guid: f079ce3b00a76494d816bac9a55eb95e,
         type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0.0000000074011055
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6712026062488473154, guid: f079ce3b00a76494d816bac9a55eb95e,
         type: 3}
       propertyPath: m_LocalRotation.y
-      value: -0.000000029802326
+      value: -0.000000028910817
       objectReference: {fileID: 0}
     - target: {fileID: 6712026062488473154, guid: f079ce3b00a76494d816bac9a55eb95e,
         type: 3}
       propertyPath: m_LocalRotation.z
-      value: 1.8817435e-16
+      value: -5.861579e-17
       objectReference: {fileID: 0}
     - target: {fileID: 6826543674057383988, guid: f079ce3b00a76494d816bac9a55eb95e,
         type: 3}
@@ -948,17 +961,17 @@ PrefabInstance:
     - target: {fileID: 7955875314469691789, guid: f079ce3b00a76494d816bac9a55eb95e,
         type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0.0000000074011055
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7955875314469691789, guid: f079ce3b00a76494d816bac9a55eb95e,
         type: 3}
       propertyPath: m_LocalRotation.y
-      value: -0.000000029802326
+      value: -0.000000028910817
       objectReference: {fileID: 0}
     - target: {fileID: 7955875314469691789, guid: f079ce3b00a76494d816bac9a55eb95e,
         type: 3}
       propertyPath: m_LocalRotation.z
-      value: 1.8817435e-16
+      value: -5.861579e-17
       objectReference: {fileID: 0}
     - target: {fileID: 7965336747866115603, guid: f079ce3b00a76494d816bac9a55eb95e,
         type: 3}
