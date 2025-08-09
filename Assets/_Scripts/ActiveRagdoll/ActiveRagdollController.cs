@@ -58,7 +58,9 @@ namespace ActiveRagdoll
             float horizontalInput = Input.GetAxis("Horizontal");
             transform.Rotate(0, horizontalInput * turnSpeed, 0);
 
-            rootRigidbody.velocity = new Vector3(physicalTorso.velocity.x, rootRigidbody.velocity.y, physicalTorso.velocity.z);
+            Vector3 positionDifference = physicalTorso.position - rootRigidbody.position;
+            Vector3 velocityToTarget = positionDifference / Time.fixedDeltaTime;
+            rootRigidbody.velocity = new Vector3(velocityToTarget.x, rootRigidbody.velocity.y, velocityToTarget.z);
 
             for (int i = 0; i < physicalJoints.Length; i++)
             {
