@@ -51,18 +51,17 @@ namespace ActiveRagdoll
 
         void FixedUpdate()
         {
+            stabilizer.GetComponent<Rigidbody>().MovePosition(physicalTorso.position);
+            stabilizer.GetComponent<Rigidbody>().MoveRotation(transform.rotation);
 
             float horizontalInput = Input.GetAxis("Horizontal");
             transform.Rotate(0, horizontalInput * turnSpeed, 0);
 
-            Quaternion targetRotation = transform.rotation;
-
-            stabilizer.GetComponent<Rigidbody>().MovePosition(physicalTorso.position);
-            stabilizer.GetComponent<Rigidbody>().MoveRotation(targetRotation);
-
             Vector3 positionDifference = physicalTorso.position - rootRigidbody.position;
             Vector3 velocityToTarget = positionDifference / Time.fixedDeltaTime;
-            rootRigidbody.velocity = new Vector3(velocityToTarget.x, rootRigidbody.velocity.y, velocityToTarget.z);
+            rootRigidbody.velocity = velocityToTarget;
+
+            SyncAnimatedBody();
 
             for (int i = 0; i < physicalJoints.Length; i++)
             {
@@ -72,6 +71,13 @@ namespace ActiveRagdoll
 
                 ConfigurableJointExtensions.SetTargetRotationLocal(joint, animatedBone.localRotation, initialRotation);
             }
+        }
+
+        private void SyncAnimatedBody()
+        {
+            Vector3 animatedOffset = animatedAnimator.transform.position - animatedTorso.position;
+            animatedAnimator.transform.position = physicalTorso.position + animatedOffset;
+            animatedAnimator.transform.rotation = physicalTorso.rotation;
         }
 
         // --- GIZMOS ---
