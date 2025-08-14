@@ -118,6 +118,24 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""RightArmIK"",
+                    ""type"": ""Button"",
+                    ""id"": ""eeb6502e-a027-42a6-8291-3b68d321833d"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""LeftArmIK"",
+                    ""type"": ""Button"",
+                    ""id"": ""e69011f9-186a-4573-a3bd-468f3f9458c9"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -201,11 +219,33 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
                 {
                     ""name"": """",
                     ""id"": ""3169af66-1dfc-42bb-927a-9e49ef804028"",
-                    ""path"": ""<Keyboard>/q"",
+                    ""path"": ""<Keyboard>/h"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
                     ""action"": ""ShoulderToggle"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""8655bf26-8922-46d6-9275-c78f0e9d20b3"",
+                    ""path"": ""<Mouse>/rightButton"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""RightArmIK"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""b90b8174-4caf-4855-be1c-d9f281207958"",
+                    ""path"": ""<Mouse>/leftButton"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""LeftArmIK"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -219,6 +259,8 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
         m_Gameplay_Move = m_Gameplay.FindAction("Move", throwIfNotFound: true);
         m_Gameplay_Look = m_Gameplay.FindAction("Look", throwIfNotFound: true);
         m_Gameplay_ShoulderToggle = m_Gameplay.FindAction("ShoulderToggle", throwIfNotFound: true);
+        m_Gameplay_RightArmIK = m_Gameplay.FindAction("RightArmIK", throwIfNotFound: true);
+        m_Gameplay_LeftArmIK = m_Gameplay.FindAction("LeftArmIK", throwIfNotFound: true);
     }
 
     ~@PlayerControls()
@@ -302,6 +344,8 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
     private readonly InputAction m_Gameplay_Move;
     private readonly InputAction m_Gameplay_Look;
     private readonly InputAction m_Gameplay_ShoulderToggle;
+    private readonly InputAction m_Gameplay_RightArmIK;
+    private readonly InputAction m_Gameplay_LeftArmIK;
     /// <summary>
     /// Provides access to input actions defined in input action map "Gameplay".
     /// </summary>
@@ -325,6 +369,14 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "Gameplay/ShoulderToggle".
         /// </summary>
         public InputAction @ShoulderToggle => m_Wrapper.m_Gameplay_ShoulderToggle;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/RightArmIK".
+        /// </summary>
+        public InputAction @RightArmIK => m_Wrapper.m_Gameplay_RightArmIK;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/LeftArmIK".
+        /// </summary>
+        public InputAction @LeftArmIK => m_Wrapper.m_Gameplay_LeftArmIK;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -360,6 +412,12 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
             @ShoulderToggle.started += instance.OnShoulderToggle;
             @ShoulderToggle.performed += instance.OnShoulderToggle;
             @ShoulderToggle.canceled += instance.OnShoulderToggle;
+            @RightArmIK.started += instance.OnRightArmIK;
+            @RightArmIK.performed += instance.OnRightArmIK;
+            @RightArmIK.canceled += instance.OnRightArmIK;
+            @LeftArmIK.started += instance.OnLeftArmIK;
+            @LeftArmIK.performed += instance.OnLeftArmIK;
+            @LeftArmIK.canceled += instance.OnLeftArmIK;
         }
 
         /// <summary>
@@ -380,6 +438,12 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
             @ShoulderToggle.started -= instance.OnShoulderToggle;
             @ShoulderToggle.performed -= instance.OnShoulderToggle;
             @ShoulderToggle.canceled -= instance.OnShoulderToggle;
+            @RightArmIK.started -= instance.OnRightArmIK;
+            @RightArmIK.performed -= instance.OnRightArmIK;
+            @RightArmIK.canceled -= instance.OnRightArmIK;
+            @LeftArmIK.started -= instance.OnLeftArmIK;
+            @LeftArmIK.performed -= instance.OnLeftArmIK;
+            @LeftArmIK.canceled -= instance.OnLeftArmIK;
         }
 
         /// <summary>
@@ -441,5 +505,19 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnShoulderToggle(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "RightArmIK" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnRightArmIK(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "LeftArmIK" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnLeftArmIK(InputAction.CallbackContext context);
     }
 }

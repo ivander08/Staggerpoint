@@ -1,169 +1,274 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace ActiveRagdoll
 {
     public class ActiveRagdollController : MonoBehaviour
     {
-        // --- Private References ---
-        private Rigidbody rootRigidbody;        // The Rigidbody of this main parent GameObject.
-        private ConfigurableJoint[] physicalJoints; // Array to hold all joints of the physical body.
-        private Transform[] animatedBones;      // Array to hold all bone transforms of the animated body.
-        private Quaternion[] initialJointsRotation; // Stores the starting rotation of each joint.
-        private Rigidbody[] allRigidbodies;     // Array to hold all rigidbodies for initial setup.
-        private int speedParameterId;           // An optimized ID for the "Speed" parameter in the Animator.
-
-        // --- Core References (Set in Inspector) ---
+        // --- Inspector: Core Object References ---
         [Header("Core References")]
-        [Tooltip("The invisible, kinematic Rigidbody that acts as a balance and rotation target.")]
-        [SerializeField] private Transform stabilizer;
-        [Tooltip("The root bone of the visible, animated character (e.g., the Hips).")]
-        [SerializeField] private Transform animatedTorso;
-        [Tooltip("The Rigidbody of the root bone of the physical ragdoll (e.g., the Hips).")]
-        [SerializeField] private Rigidbody physicalTorso;
-        [Tooltip("The Animator component on the animated character.")]
-        [SerializeField] private Animator animatedAnimator;
+        [SerializeField] private Transform _stabilizer;
+        [SerializeField] private Transform _animatedTorso;
+        [SerializeField] private Rigidbody _physicalTorso;
+        [SerializeField] private Animator _animatedAnimator;
+        [SerializeField] private AnimatorIKHelper _ikHelper;
+        [SerializeField] private Transform _cameraTransform;
 
-        // --- Movement Settings (Set in Inspector) ---
+        // --- Inspector: Movement & Turning ---
         [Header("Movement Settings")]
-        [Tooltip("How fast the walk animation plays when moving forward.")]
-        [SerializeField] private float walkSpeedMultiplier = 1.5f;
-        [Tooltip("How fast the character turns left and right.")]
-        [SerializeField] private float turnSpeed = 2f;
+        [SerializeField] private float _walkSpeedMultiplier = 1.5f;
+        [SerializeField] private float _turnSpeed = 2f;
 
+        // --- Inspector: IK Targets & Settings ---
+        [Header("IK Targets")]
+        [SerializeField] private Transform _rightHandTarget;
+        [SerializeField] private Transform _rightElbowHint;
+        [SerializeField] private Transform _leftHandTarget;
+        [SerializeField] private Transform _leftElbowHint;
 
-        // ##################
-        // ## INITIALIZATION ##
-        // ##################
+        [Header("IK Control")]
+        [SerializeField] private bool _limitAimAngle = true;
+        [SerializeField] private float _maxAimAngle = 110f;
+
+        // --- Inspector: IK Positional Offsets ---
+        [Header("Right Hand IK Offsets")]
+        [SerializeField] private float _handTargetForwardOffset = 1.35f;
+        [SerializeField] private float _handTargetRightOffset = 0f;
+        [SerializeField] private float _elbowHintForwardOffset = 0.2f;
+        [SerializeField] private float _elbowHintRightOffset = 0f;
+
+        [Header("Left Hand IK Offsets")]
+        [SerializeField] private float _leftHandForwardOffset = 1.5f;
+        [SerializeField] private float _leftHandRightOffset = 0.35f;
+        [SerializeField] private float _leftElbowHintForwardOffset = 0.2f;
+        [SerializeField] private float _leftElbowHintRightOffset = 0f;
+
+        // --- Private Class Members ---
+        private PlayerControls _playerControls;
+        private Rigidbody _rootRigidbody;
+        private ConfigurableJoint[] _physicalJoints;
+        private Transform[] _animatedBones;
+        private Quaternion[] _initialJointsRotation;
+        private int _speedParameterId;
+        private bool _rightArmIKActive = false;
+        private bool _leftArmIKActive = false;
+
+        void Awake()
+        {
+            _playerControls = new PlayerControls();
+        }
 
         void Start()
         {
-            // --- 1. Get Core Components ---
-            // Get the Rigidbody attached to this parent GameObject.
-            rootRigidbody = GetComponent<Rigidbody>();
+            _rootRigidbody = GetComponent<Rigidbody>();
 
-            // --- 2. Gather All Ragdoll Parts ---
-            // Find every joint and rigidbody in the children of the physical torso.
-            physicalJoints = physicalTorso.GetComponentsInChildren<ConfigurableJoint>();
-            allRigidbodies = physicalTorso.GetComponentsInChildren<Rigidbody>();
-            // Find every bone transform in the children of the animated torso.
-            animatedBones = animatedTorso.GetComponentsInChildren<Transform>();
+            _physicalJoints = _physicalTorso.GetComponentsInChildren<ConfigurableJoint>();
+            _animatedBones = _animatedTorso.GetComponentsInChildren<Transform>();
 
-            // --- 3. Configure Physics Properties ---
-            // Set a higher rotation speed limit on all parts of the ragdoll.
-            // This is crucial to prevent physics from clamping the ragdoll's movements.
+            var allRigidbodies = _physicalTorso.GetComponentsInChildren<Rigidbody>();
             foreach (Rigidbody rb in allRigidbodies)
             {
+                // Prevents physics from clamping the ragdoll's rotation speed.
                 rb.maxAngularVelocity = 50;
             }
 
-            // --- 4. Cache Initial Rotations ---
-            // Store the default rotation of each joint. This is required by the extension
-            // script to correctly calculate the target rotation for motion matching.
-            initialJointsRotation = new Quaternion[physicalJoints.Length];
-            for (int i = 0; i < physicalJoints.Length; i++)
+            _initialJointsRotation = new Quaternion[_physicalJoints.Length];
+            for (int i = 0; i < _physicalJoints.Length; i++)
             {
-                initialJointsRotation[i] = physicalJoints[i].transform.localRotation;
+                // Cache the default rotation of each joint for motion matching.
+                _initialJointsRotation[i] = _physicalJoints[i].transform.localRotation;
             }
 
-            // --- 5. Animator Setup ---
-            // Get an optimized integer ID for the "Speed" parameter to improve performance.
-            speedParameterId = Animator.StringToHash("Speed");
+            _speedParameterId = Animator.StringToHash("Speed");
         }
 
+        void OnEnable()
+        {
+            _playerControls.Gameplay.Enable();
 
-        // #################
-        // ## FRAME UPDATES ##
-        // #################
+            _playerControls.Gameplay.RightArmIK.performed += ctx => _rightArmIKActive = true;
+            _playerControls.Gameplay.RightArmIK.canceled += ctx => _rightArmIKActive = false;
 
-        // Update is called once per frame and is best for handling player input.
+            _playerControls.Gameplay.LeftArmIK.performed += ctx => _leftArmIKActive = true;
+            _playerControls.Gameplay.LeftArmIK.canceled += ctx => _leftArmIKActive = false;
+        }
+
+        void OnDisable()
+        {
+            _playerControls.Gameplay.Disable();
+
+            _playerControls.Gameplay.RightArmIK.performed -= ctx => _rightArmIKActive = true;
+            _playerControls.Gameplay.RightArmIK.canceled -= ctx => _rightArmIKActive = false;
+
+            _playerControls.Gameplay.LeftArmIK.performed -= ctx => _leftArmIKActive = true;
+            _playerControls.Gameplay.LeftArmIK.canceled -= ctx => _leftArmIKActive = false;
+        }
+
         void Update()
         {
-            // Read vertical input from W/S keys or a controller stick.
             float verticalInput = Input.GetAxis("Vertical");
-            // Tell the animator to set the "Speed" parameter, which will trigger the walk animation.
-            animatedAnimator.SetFloat(speedParameterId, verticalInput * walkSpeedMultiplier);
+            _animatedAnimator.SetFloat(_speedParameterId, verticalInput * _walkSpeedMultiplier);
         }
 
-        // FixedUpdate is called in sync with the physics engine (50 times per second by default).
-        // All physics calculations and forces should be applied here.
         void FixedUpdate()
         {
-            // --- STEP 1: UPDATE THE STABILIZER TARGET ---
-            // Move our kinematic "guide" to the physical torso's current position and
-            // rotate it to match the player's intended direction. The joint will then
-            // apply forces to make the physical torso match this guide.
-            stabilizer.GetComponent<Rigidbody>().MovePosition(physicalTorso.position);
-            stabilizer.GetComponent<Rigidbody>().MoveRotation(transform.rotation);
+            // Update the stabilizer to act as a balance and rotation guide.
+            _stabilizer.GetComponent<Rigidbody>().MovePosition(_physicalTorso.position);
+            _stabilizer.GetComponent<Rigidbody>().MoveRotation(transform.rotation);
 
-            // --- STEP 2: HANDLE PLAYER TURNING ---
-            // Read horizontal input and rotate the main parent object. This defines our target direction.
+            // Rotate the character controller based on player input.
             float horizontalInput = Input.GetAxis("Horizontal");
-            transform.Rotate(0, horizontalInput * turnSpeed, 0);
+            transform.Rotate(0, horizontalInput * _turnSpeed, 0);
 
-            // --- STEP 3: MOVE THE ROOT CONTROLLER ---
-            // Calculate the difference between the root and the physical body.
-            Vector3 positionDifference = physicalTorso.position - rootRigidbody.position;
-            // Calculate the velocity needed to cover that distance in one physics step.
+            // Pull the root controller along with the physical body's velocity.
+            Vector3 positionDifference = _physicalTorso.position - _rootRigidbody.position;
             Vector3 velocityToTarget = positionDifference / Time.fixedDeltaTime;
-            // Apply the velocity to pull the root along with the physical character.
-            rootRigidbody.velocity = velocityToTarget;
+            _rootRigidbody.velocity = velocityToTarget;
 
-            // --- STEP 4: SYNC THE ANIMATED BODY ---
-            // Keep the hidden animated body in sync with the physical one. This is
-            // crucial for systems like IK that read bone positions from the animator.
+            // Keep the hidden animated body synced with the physical one for IK.
             SyncAnimatedBody();
 
-            // --- STEP 5: MATCH MOTION ---
-            // This is the core of the "active" ragdoll. Loop through every joint
-            // and tell it to apply force to match the rotation of its animated counterpart.
-            for (int i = 0; i < physicalJoints.Length; i++)
+            // The core motion matching logic.
+            for (int i = 0; i < _physicalJoints.Length; i++)
             {
-                ConfigurableJoint joint = physicalJoints[i];
-                Transform animatedBone = animatedBones[i + 1]; // Use i+1 to account for the root bone offset.
-                Quaternion initialRotation = initialJointsRotation[i];
-
-                ConfigurableJointExtensions.SetTargetRotationLocal(joint, animatedBone.localRotation, initialRotation);
+                // Use i+1 to account for the root bone offset in GetComponentsInChildren.
+                Transform animatedBone = _animatedBones[i + 1];
+                ConfigurableJointExtensions.SetTargetRotationLocal(_physicalJoints[i], animatedBone.localRotation, _initialJointsRotation[i]);
             }
+        }
+
+        void LateUpdate()
+        {
+            if (_ikHelper == null || _cameraTransform == null) return;
+
+            // --- Define a shared aim direction for all IK ---
+            Vector3 aimDirection = CalculateClampedAimDirection();
+
+            // --- Update Head IK ---
+            _ikHelper.LookAtWeight = 1.0f;
+            _ikHelper.LookAtPoint = _cameraTransform.position + (aimDirection * 10f);
+
+            // --- Update Right Arm IK ---
+            HandleRightArmIK(aimDirection);
+
+            // --- Update Left Arm IK ---
+            HandleLeftArmIK(aimDirection);
+        }
+
+        private Vector3 CalculateClampedAimDirection()
+        {
+            Vector3 cameraDirection = _cameraTransform.forward;
+            if (!_limitAimAngle)
+            {
+                return cameraDirection;
+            }
+
+            Vector3 characterForward = Vector3.ProjectOnPlane(_physicalTorso.transform.forward, Vector3.up).normalized;
+            Vector3 horizontalCameraDirection = Vector3.ProjectOnPlane(cameraDirection, Vector3.up).normalized;
+            float signedAngle = Vector3.SignedAngle(characterForward, horizontalCameraDirection, Vector3.up);
+
+            Vector3 finalDirection;
+
+            if (Mathf.Abs(signedAngle) > _maxAimAngle)
+            {
+
+                float sign = Mathf.Sign(signedAngle);
+                Quaternion clampedRotation = Quaternion.AngleAxis(_maxAimAngle * sign, Vector3.up);
+                Vector3 clampedFlatDirection = clampedRotation * characterForward;
+
+                finalDirection = new Vector3(clampedFlatDirection.x, cameraDirection.y, clampedFlatDirection.z);
+
+                finalDirection.Normalize();
+            }
+            else
+            {
+                // If we are within the limit, use the original camera direction.
+                finalDirection = cameraDirection;
+            }
+
+            return finalDirection;
+        }
+
+        private void HandleRightArmIK(Vector3 aimDirection)
+        {
+            _ikHelper.RightHandWeight = _rightArmIKActive ? 1.0f : 0.0f;
+            if (!_rightArmIKActive) return;
+
+            Vector3 handTargetPosition = _cameraTransform.position
+                                       + (_cameraTransform.right * _handTargetRightOffset)
+                                       + (aimDirection * _handTargetForwardOffset);
+            _rightHandTarget.position = handTargetPosition;
+
+            _rightElbowHint.position = handTargetPosition
+                                    - (aimDirection * _elbowHintForwardOffset)
+                                    - (_cameraTransform.right * _elbowHintRightOffset);
+
+            _ikHelper.RightHandPosition = _rightHandTarget.position;
+            _ikHelper.RightHandRotation = Quaternion.LookRotation(aimDirection, _cameraTransform.up);
+            _ikHelper.RightElbowHint = _rightElbowHint.position;
+        }
+
+        private void HandleLeftArmIK(Vector3 aimDirection)
+        {
+            _ikHelper.LeftHandWeight = _leftArmIKActive ? 1.0f : 0.0f;
+            if (!_leftArmIKActive) return;
+
+            Vector3 handTargetPosition = _cameraTransform.position
+                                       + (-_cameraTransform.right * _leftHandRightOffset)
+                                       + (aimDirection * _leftHandForwardOffset);
+            _leftHandTarget.position = handTargetPosition;
+
+            _leftElbowHint.position = handTargetPosition
+                                    - (aimDirection * _leftElbowHintForwardOffset)
+                                    + (_cameraTransform.right * _leftElbowHintRightOffset);
+
+            _ikHelper.LeftHandPosition = _leftHandTarget.position;
+            _ikHelper.LeftHandRotation = Quaternion.LookRotation(aimDirection, _cameraTransform.up);
+            _ikHelper.LeftElbowHint = _leftElbowHint.position;
         }
 
         private void SyncAnimatedBody()
         {
-            // Calculate the offset from the animated model's root to its hip bone.
-            Vector3 animatedOffset = animatedAnimator.transform.position - animatedTorso.position;
-            // Reposition the animated model's root so that its hip bone aligns with the physical hip bone.
-            animatedAnimator.transform.position = physicalTorso.position + animatedOffset;
-            // Match the rotation.
-            animatedAnimator.transform.rotation = physicalTorso.rotation;
+            Vector3 animatedOffset = _animatedAnimator.transform.position - _animatedTorso.position;
+            _animatedAnimator.transform.position = _physicalTorso.position + animatedOffset;
+            _animatedAnimator.transform.rotation = _physicalTorso.rotation;
         }
 
-        // ###########
-        // ## GIZMOS ##
-        // ###########
-
-        // This function draws debug lines in the Scene view to help visualize what's happening.
         private void OnDrawGizmos()
         {
-            // Don't draw if the game isn't running.
-            if (!Application.isPlaying)
-            {
-                return;
-            }
+            if (!Application.isPlaying) return;
 
-            // Draw a BLUE line showing the direction the Stabilizer is aiming.
+            // Draw physics/movement gizmos
             Gizmos.color = Color.blue;
-            Gizmos.DrawRay(stabilizer.position, stabilizer.forward * 2f);
-
-            // Draw a RED line showing the direction the Physical Torso is actually facing.
+            Gizmos.DrawRay(_stabilizer.position, _stabilizer.forward * 2f);
             Gizmos.color = Color.red;
-            Gizmos.DrawRay(physicalTorso.position, physicalTorso.transform.forward * 1.5f);
-
-            // Draw a YELLOW line showing the "leash" between the root and the physical body.
+            Gizmos.DrawRay(_physicalTorso.position, _physicalTorso.transform.forward * 1.5f);
             Gizmos.color = Color.yellow;
-            Gizmos.DrawLine(rootRigidbody.position, physicalTorso.position);
-
-            // Draw a GREEN line showing the velocity we apply to the root.
+            Gizmos.DrawLine(_rootRigidbody.position, _physicalTorso.position);
             Gizmos.color = Color.green;
-            Gizmos.DrawRay(rootRigidbody.position, rootRigidbody.velocity);
+            Gizmos.DrawRay(_rootRigidbody.position, _rootRigidbody.velocity);
+
+            // Draw IK target gizmos if they exist
+            if (_rightHandTarget)
+            {
+                Gizmos.color = _rightArmIKActive ? Color.magenta : Color.gray;
+                Gizmos.DrawWireSphere(_rightHandTarget.position, 0.1f);
+            }
+            if (_rightElbowHint)
+            {
+                Gizmos.color = _rightArmIKActive ? new Color(1.0f, 0.5f, 0.0f) : Color.gray;
+                Gizmos.DrawWireSphere(_rightElbowHint.position, 0.07f);
+            }
+            if (_leftHandTarget)
+            {
+                Gizmos.color = _leftArmIKActive ? Color.cyan : Color.gray;
+                Gizmos.DrawWireSphere(_leftHandTarget.position, 0.1f);
+            }
+            if (_leftElbowHint)
+            {
+                Gizmos.color = _leftArmIKActive ? new Color(0.5f, 0.0f, 0.5f) : Color.gray;
+                Gizmos.DrawWireSphere(_leftElbowHint.position, 0.07f);
+            }
         }
     }
 }

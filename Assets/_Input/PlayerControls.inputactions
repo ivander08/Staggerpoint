@@ -32,6 +32,24 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "RightArmIK",
+                    "type": "Button",
+                    "id": "eeb6502e-a027-42a6-8291-3b68d321833d",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "LeftArmIK",
+                    "type": "Button",
+                    "id": "e69011f9-186a-4573-a3bd-468f3f9458c9",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -115,11 +133,33 @@
                 {
                     "name": "",
                     "id": "3169af66-1dfc-42bb-927a-9e49ef804028",
-                    "path": "<Keyboard>/q",
+                    "path": "<Keyboard>/h",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
                     "action": "ShoulderToggle",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "8655bf26-8922-46d6-9275-c78f0e9d20b3",
+                    "path": "<Mouse>/rightButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "RightArmIK",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "b90b8174-4caf-4855-be1c-d9f281207958",
+                    "path": "<Mouse>/leftButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "LeftArmIK",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

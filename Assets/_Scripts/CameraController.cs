@@ -6,7 +6,8 @@ namespace ActiveRagdoll
     public class CameraController : MonoBehaviour
     {
         [Header("Target To Follow")]
-        [SerializeField] private Transform target; // Drag your ActiveRagdoll's 'physicalTorso' here
+        [Tooltip("Drag your ActiveRagdoll's 'physicalTorso' here")]
+        [SerializeField] private Transform target;
 
         [Header("Camera Control")]
         [SerializeField] private float lookSensitivity = 1.0f;
@@ -16,8 +17,8 @@ namespace ActiveRagdoll
 
         [Header("Positioning")]
         [SerializeField] private float distance = 1.0f;
-        // This Vector3 now controls everything: X=side, Y=up, Z=forward offset from target
-        [SerializeField] private Vector3 lookAtPointOffset = new Vector3(0.2f, 0.3f, 0); 
+        [Tooltip("This Vector3 now controls everything: X=side, Y=up, Z=forward offset from target")]
+        [SerializeField] private Vector3 lookAtPointOffset = new Vector3(0.2f, 0.3f, 0);
 
         [Header("Collision")]
         [SerializeField] private LayerMask collisionLayers;
@@ -28,11 +29,12 @@ namespace ActiveRagdoll
         private float currentYaw;
         private float currentPitch;
 
-        // --- SETUP ---
         private void Awake()
         {
+            // 1. Set up the input system.
             playerControls = new PlayerControls();
-            Cursor.lockState = CursorLockMode.Locked; // Good place for this
+            // 2. Lock the cursor to the center of the screen.
+            Cursor.lockState = CursorLockMode.Locked;
         }
 
         private void OnEnable()
@@ -47,38 +49,30 @@ namespace ActiveRagdoll
             playerControls.Gameplay.Disable();
         }
 
-        // --- INPUT & LOGIC ---
         private void Update()
         {
+            // 1. Read the look input (mouse movement).
             lookInput = playerControls.Gameplay.Look.ReadValue<Vector2>();
         }
 
         private void LateUpdate()
         {
-            // 1. Calculate Rotation from Input
+            // 1. Calculate the camera's rotation from input.
             currentYaw += lookInput.x * lookSensitivity * Time.deltaTime * 50f;
             currentPitch -= lookInput.y * lookSensitivity * Time.deltaTime * 50f;
             currentPitch = Mathf.Clamp(currentPitch, minVerticalAngle, maxVerticalAngle);
-
-            // Create the camera's rotation quaternion
             Quaternion rotation = Quaternion.Euler(currentPitch, currentYaw, 0);
 
-            // 2. Calculate the Look-At Point
-            // Start at the target's position...
+            // 2. Determine the point in space the camera should look at.
             Vector3 lookAtBase = target.position;
-            // ...then apply our offset relative to the camera's rotation.
-            // This is the point the camera will actually look at.
             Vector3 lookAtPoint = lookAtBase + (rotation * lookAtPointOffset);
-            
-            // 3. Calculate the Camera's Ideal Position
-            // The camera simply wants to be 'distance' units behind the look-at point.
+
+            // 3. Calculate the camera's ideal position behind the look-at point.
             Vector3 desiredPosition = lookAtPoint - (rotation * Vector3.forward * distance);
 
-            // 4. Handle Collisions
+            // 4. Check for collisions and adjust the camera's position to avoid clipping.
             Vector3 finalPosition;
             RaycastHit hit;
-            // We cast from the *base* of the look-at point to prevent the camera from jittering
-            // if the offset point itself is inside a wall.
             if (Physics.Linecast(lookAtBase, desiredPosition, out hit, collisionLayers))
             {
                 finalPosition = hit.point + hit.normal * collisionPadding;
@@ -88,14 +82,14 @@ namespace ActiveRagdoll
                 finalPosition = desiredPosition;
             }
 
-            // 5. Apply Position and Rotation
+            // 5. Smoothly move the camera to the final position and make it look at the target.
             transform.position = Vector3.Lerp(transform.position, finalPosition, smoothSpeed * Time.deltaTime);
-            transform.LookAt(lookAtPoint); // Now we look at the offset point
+            transform.LookAt(lookAtPoint);
         }
 
         private void ToggleShoulder()
         {
-            // This function now just flips the sign of our X offset.
+            // 1. Flip the camera's horizontal offset to switch shoulders.
             lookAtPointOffset.x *= -1;
         }
     }
