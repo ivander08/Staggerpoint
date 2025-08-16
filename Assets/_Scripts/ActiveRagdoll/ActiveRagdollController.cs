@@ -33,23 +33,10 @@ namespace ActiveRagdoll
         [SerializeField] private Transform _leftElbowHint;
 
         [Header("IK Control")]
-        [SerializeField] private bool _limitAimAngle = true;
-        [SerializeField] private float _maxAimAngle = 110f;
+        [SerializeField] private Transform _rightShoulderAnchor;
+        [SerializeField] private Transform _leftShoulderAnchor;
         [SerializeField] private float _swingSensitivity = 0.5f;
-        [SerializeField] private float _maxArmReach = 1.2f;
-
-        // --- Inspector: IK Positional Offsets ---
-        [Header("Right Hand IK Offsets")]
-        [SerializeField] private float _handTargetForwardOffset = 1.35f;
-        [SerializeField] private float _handTargetRightOffset = 0f;
-        [SerializeField] private float _elbowHintForwardOffset = 0.2f;
-        [SerializeField] private float _elbowHintRightOffset = 0f;
-
-        [Header("Left Hand IK Offsets")]
-        [SerializeField] private float _leftHandForwardOffset = 1.5f;
-        [SerializeField] private float _leftHandRightOffset = 0.35f;
-        [SerializeField] private float _leftElbowHintForwardOffset = 0.2f;
-        [SerializeField] private float _leftElbowHintRightOffset = 0f;
+        [SerializeField] private float _swingRadius = 1.2f;
 
         // --- Private Class Members ---
         private PlayerControls _playerControls;
@@ -187,17 +174,16 @@ namespace ActiveRagdoll
         {
             if (_ikHelper == null || _cameraTransform == null) return;
 
-            // --- Define a shared aim direction for all IK ---
-            Vector3 aimDirection = CalculateClampedAimDirection();
+            // The aim direction for the hands is now simply the camera's forward direction.
+            Vector3 aimDirection = _cameraTransform.forward;
 
-            // --- Update Head IK ---
-            _ikHelper.LookAtWeight = 1.0f;
-            _ikHelper.LookAtPoint = _cameraTransform.position + (aimDirection * 10f);
+            // Disable Head IK by setting its weight to zero.
+            _ikHelper.LookAtWeight = 0.0f;
 
-            // --- Update Right Arm IK ---
+            // Update Right Arm IK
             HandleRightArmIK(aimDirection);
 
-            // --- Update Left Arm IK ---
+            // Update Left Arm IK
             HandleLeftArmIK(aimDirection);
         }
 
@@ -209,63 +195,38 @@ namespace ActiveRagdoll
             _physicalTorso.angularVelocity = angVel;
         }
 
-        private Vector3 CalculateClampedAimDirection()
-        {
-            Vector3 cameraDirection = _cameraTransform.forward;
-            if (!_limitAimAngle)
-            {
-                return cameraDirection;
-            }
-
-            Vector3 characterForward = Vector3.ProjectOnPlane(_physicalTorso.transform.forward, Vector3.up).normalized;
-            Vector3 horizontalCameraDirection = Vector3.ProjectOnPlane(cameraDirection, Vector3.up).normalized;
-            float signedAngle = Vector3.SignedAngle(characterForward, horizontalCameraDirection, Vector3.up);
-
-            Vector3 finalDirection;
-
-            if (Mathf.Abs(signedAngle) > _maxAimAngle)
-            {
-
-                float sign = Mathf.Sign(signedAngle);
-                Quaternion clampedRotation = Quaternion.AngleAxis(_maxAimAngle * sign, Vector3.up);
-                Vector3 clampedFlatDirection = clampedRotation * characterForward;
-
-                finalDirection = new Vector3(clampedFlatDirection.x, cameraDirection.y, clampedFlatDirection.z);
-
-                finalDirection.Normalize();
-            }
-            else
-            {
-                // If we are within the limit, use the original camera direction.
-                finalDirection = cameraDirection;
-            }
-
-            return finalDirection;
-        }
 
         private void HandleRightArmIK(Vector3 aimDirection)
         {
             _ikHelper.RightHandWeight = _rightArmIKActive ? 1.0f : 0.0f;
-            if (!_rightArmIKActive) return;
+            if (!_rightArmIKActive || _rightShoulderAnchor == null) return;
 
-            // Move the hand based on mouse input.
+            // --- CORRECTED ROTATIONAL LOGIC ---
             Vector2 mouseDelta = _playerControls.Gameplay.Look.ReadValue<Vector2>();
-            Vector3 movement = (_cameraTransform.right * mouseDelta.x + _cameraTransform.up * mouseDelta.y) * _swingSensitivity * Time.deltaTime;
-            Vector3 goalPosition = _rightHandTarget.position + movement;
 
-            // Apply the physical leash.
-            Vector3 anchorPoint = _physicalTorso.position;
-            Vector3 vectorFromAnchor = goalPosition - anchorPoint;
-            if (vectorFromAnchor.magnitude > _maxArmReach)
-            {
-                goalPosition = anchorPoint + vectorFromAnchor.normalized * _maxArmReach;
-            }
-            _rightHandTarget.position = goalPosition;
+            // 1. Get the current arm direction.
+            Vector3 currentArmVector = _rightHandTarget.position - _rightShoulderAnchor.position;
 
-            // A simple, predictable elbow hint position.
-            _rightElbowHint.position = _rightHandTarget.position
-                                     - (_cameraTransform.forward * 0.5f)
-                                     - (_cameraTransform.right * 0.5f);
+            // 2. Create rotations from mouse input.
+            Quaternion yawRotation = Quaternion.AngleAxis(mouseDelta.x * _swingSensitivity, _physicalTorso.transform.up);
+            Quaternion pitchRotation = Quaternion.AngleAxis(-mouseDelta.y * _swingSensitivity, _cameraTransform.right);
+
+            // 3. Apply the rotations to the current arm vector.
+            Vector3 newArmVector = yawRotation * pitchRotation * currentArmVector;
+
+            // 4. *** THIS IS THE FIX ***
+            //    Force the new vector to have the correct length (_swingRadius).
+            newArmVector = newArmVector.normalized * _swingRadius;
+
+            // 5. Set the new hand position. It is now guaranteed to be on the sphere.
+            _rightHandTarget.position = _rightShoulderAnchor.position + newArmVector;
+            // --- END OF CORRECTED LOGIC ---
+
+            // The elbow hint logic remains the same.
+            Vector3 midpoint = (_rightShoulderAnchor.position + _rightHandTarget.position) / 2;
+            Vector3 armDirection = (_rightHandTarget.position - _rightShoulderAnchor.position).normalized;
+            Vector3 elbowOutDirection = Vector3.Cross(_physicalTorso.transform.up, armDirection).normalized;
+            _rightElbowHint.position = midpoint + elbowOutDirection * 0.3f;
 
             _ikHelper.RightHandPosition = _rightHandTarget.position;
             _ikHelper.RightHandRotation = Quaternion.LookRotation(aimDirection, _cameraTransform.up);
@@ -275,26 +236,35 @@ namespace ActiveRagdoll
         private void HandleLeftArmIK(Vector3 aimDirection)
         {
             _ikHelper.LeftHandWeight = _leftArmIKActive ? 1.0f : 0.0f;
-            if (!_leftArmIKActive) return;
+            if (!_leftArmIKActive || _leftShoulderAnchor == null) return;
 
-            // Move the hand based on mouse input.
+            // --- ROTATIONAL LOGIC for Left Arm ---
             Vector2 mouseDelta = _playerControls.Gameplay.Look.ReadValue<Vector2>();
-            Vector3 movement = (_cameraTransform.right * mouseDelta.x + _cameraTransform.up * mouseDelta.y) * _swingSensitivity * Time.deltaTime;
-            Vector3 goalPosition = _leftHandTarget.position + movement;
 
-            // Apply the physical leash.
-            Vector3 anchorPoint = _physicalTorso.position;
-            Vector3 vectorFromAnchor = goalPosition - anchorPoint;
-            if (vectorFromAnchor.magnitude > _maxArmReach)
-            {
-                goalPosition = anchorPoint + vectorFromAnchor.normalized * _maxArmReach;
-            }
-            _leftHandTarget.position = goalPosition;
+            // 1. Get the current arm direction.
+            Vector3 currentArmVector = _leftHandTarget.position - _leftShoulderAnchor.position;
 
-            // A simple, predictable elbow hint position for the left arm.
-            _leftElbowHint.position = _leftHandTarget.position
-                                    - (_cameraTransform.forward * 0.5f)
-                                    + (_cameraTransform.right * 0.5f);
+            // 2. Create rotations from mouse input.
+            Quaternion yawRotation = Quaternion.AngleAxis(mouseDelta.x * _swingSensitivity, _physicalTorso.transform.up);
+            Quaternion pitchRotation = Quaternion.AngleAxis(-mouseDelta.y * _swingSensitivity, _cameraTransform.right);
+
+            // 3. Apply the rotations to the current arm vector.
+            Vector3 newArmVector = yawRotation * pitchRotation * currentArmVector;
+
+            // 4. Force the new vector to have the correct length (_swingRadius).
+            newArmVector = newArmVector.normalized * _swingRadius;
+
+            // 5. Set the new hand position.
+            _leftHandTarget.position = _leftShoulderAnchor.position + newArmVector;
+            // --- END OF ROTATIONAL LOGIC ---
+
+            // The elbow hint logic remains the same.
+            Vector3 midpoint = (_leftShoulderAnchor.position + _leftHandTarget.position) / 2;
+            Vector3 armDirection = (_leftHandTarget.position - _leftShoulderAnchor.position).normalized;
+            Vector3 elbowOutDirection = Vector3.Cross(_physicalTorso.transform.up, armDirection).normalized;
+
+            // Use subtraction here to push the left elbow outwards correctly.
+            _leftElbowHint.position = midpoint - elbowOutDirection * 0.3f;
 
             _ikHelper.LeftHandPosition = _leftHandTarget.position;
             _ikHelper.LeftHandRotation = Quaternion.LookRotation(aimDirection, _cameraTransform.up);
@@ -339,6 +309,18 @@ namespace ActiveRagdoll
             {
                 Gizmos.color = _leftArmIKActive ? new Color(0.5f, 0.0f, 0.5f) : Color.gray;
                 Gizmos.DrawWireSphere(_leftElbowHint.position, 0.07f);
+            }
+
+            if (_rightShoulderAnchor != null && _rightArmIKActive)
+            {
+                Gizmos.color = Color.magenta;
+                Gizmos.DrawWireSphere(_rightShoulderAnchor.position, _swingRadius);
+            }
+
+            if (_leftShoulderAnchor != null && _leftArmIKActive)
+            {
+                Gizmos.color = Color.cyan;
+                Gizmos.DrawWireSphere(_leftShoulderAnchor.position, _swingRadius);
             }
         }
     }
