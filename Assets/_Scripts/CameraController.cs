@@ -5,92 +5,96 @@ namespace ActiveRagdoll
 {
     public class CameraController : MonoBehaviour
     {
+        // --- Inspector: Core References & Settings ---
         [Header("Target To Follow")]
-        [Tooltip("Drag your ActiveRagdoll's 'physicalTorso' here")]
-        [SerializeField] private Transform target;
+        [SerializeField] private Transform _target;
+        [SerializeField] private Vector3 _lookAtPointOffset = new Vector3(0.5f, 1.5f, 0);
 
         [Header("Camera Control")]
-        [SerializeField] private float lookSensitivity = 1.0f;
-        [SerializeField] private float smoothSpeed = 10.0f;
-        [SerializeField] private float minVerticalAngle = -35.0f;
-        [SerializeField] private float maxVerticalAngle = 60.0f;
+        [SerializeField] private float _lookSensitivity = 1.0f;
+        [SerializeField] private float _smoothSpeed = 10.0f;
+        [SerializeField] private float _minVerticalAngle = -35.0f;
+        [SerializeField] private float _maxVerticalAngle = 60.0f;
 
         [Header("Positioning")]
-        [SerializeField] private float distance = 1.0f;
-        [Tooltip("This Vector3 now controls everything: X=side, Y=up, Z=forward offset from target")]
-        [SerializeField] private Vector3 lookAtPointOffset = new Vector3(0.2f, 0.3f, 0);
+        [SerializeField] private float _distance = 3.0f;
 
         [Header("Collision")]
-        [SerializeField] private LayerMask collisionLayers;
-        [SerializeField] private float collisionPadding = 0.25f;
+        [SerializeField] private LayerMask _collisionLayers;
+        [SerializeField] private float _collisionPadding = 0.25f;
 
-        private PlayerControls playerControls;
-        private Vector2 lookInput;
-        private float currentYaw;
-        private float currentPitch;
+        // --- Private Class Members ---
+        private PlayerControls _playerControls;
+        private Vector2 _lookInput;
+        private float _currentYaw;
+        private float _currentPitch;
+        private bool _isLocked = false;
 
-        private void Awake()
+        void Awake()
         {
-            // 1. Set up the input system.
-            playerControls = new PlayerControls();
-            // 2. Lock the cursor to the center of the screen.
+            _playerControls = new PlayerControls();
             Cursor.lockState = CursorLockMode.Locked;
         }
 
-        private void OnEnable()
+        void OnEnable()
         {
-            playerControls.Gameplay.Enable();
-            playerControls.Gameplay.ShoulderToggle.performed += _ => ToggleShoulder();
+            _playerControls.Gameplay.Enable();
+            _playerControls.Gameplay.ShoulderToggle.performed += _ => ToggleShoulder();
         }
 
-        private void OnDisable()
+        void OnDisable()
         {
-            playerControls.Gameplay.ShoulderToggle.performed -= _ => ToggleShoulder();
-            playerControls.Gameplay.Disable();
+            _playerControls.Gameplay.ShoulderToggle.performed -= _ => ToggleShoulder();
+            _playerControls.Gameplay.Disable();
         }
 
-        private void Update()
+        // This is the public "on/off" switch for our camera's rotation.
+        public void SetLock(bool shouldLock)
         {
-            // 1. Read the look input (mouse movement).
-            lookInput = playerControls.Gameplay.Look.ReadValue<Vector2>();
+            _isLocked = shouldLock;
         }
 
-        private void LateUpdate()
+        void Update()
         {
-            // 1. Calculate the camera's rotation from input.
-            currentYaw += lookInput.x * lookSensitivity * Time.deltaTime * 50f;
-            currentPitch -= lookInput.y * lookSensitivity * Time.deltaTime * 50f;
-            currentPitch = Mathf.Clamp(currentPitch, minVerticalAngle, maxVerticalAngle);
-            Quaternion rotation = Quaternion.Euler(currentPitch, currentYaw, 0);
+            // Read the mouse movement value from the Input Action.
+            _lookInput = _playerControls.Gameplay.Look.ReadValue<Vector2>();
+        }
 
-            // 2. Determine the point in space the camera should look at.
-            Vector3 lookAtBase = target.position;
-            Vector3 lookAtPoint = lookAtBase + (rotation * lookAtPointOffset);
-
-            // 3. Calculate the camera's ideal position behind the look-at point.
-            Vector3 desiredPosition = lookAtPoint - (rotation * Vector3.forward * distance);
-
-            // 4. Check for collisions and adjust the camera's position to avoid clipping.
-            Vector3 finalPosition;
-            RaycastHit hit;
-            if (Physics.Linecast(lookAtBase, desiredPosition, out hit, collisionLayers))
+        void LateUpdate()
+        {
+            // Only update the camera's rotation angles if it is NOT locked.
+            if (!_isLocked)
             {
-                finalPosition = hit.point + hit.normal * collisionPadding;
+                _currentYaw += _lookInput.x * _lookSensitivity * Time.deltaTime * 50f;
+                _currentPitch -= _lookInput.y * _lookSensitivity * Time.deltaTime * 50f;
+                _currentPitch = Mathf.Clamp(_currentPitch, _minVerticalAngle, _maxVerticalAngle);
+            }
+
+            Quaternion rotation = Quaternion.Euler(_currentPitch, _currentYaw, 0);
+            
+            Vector3 lookAtBase = _target.position;
+            Vector3 lookAtPoint = lookAtBase + (rotation * _lookAtPointOffset);
+            
+            Vector3 desiredPosition = lookAtPoint - (rotation * Vector3.forward * _distance);
+
+            // Handle collisions to prevent clipping through walls.
+            if (Physics.Linecast(lookAtBase, desiredPosition, out RaycastHit hit, _collisionLayers))
+            {
+                transform.position = hit.point + hit.normal * _collisionPadding;
             }
             else
             {
-                finalPosition = desiredPosition;
+                transform.position = desiredPosition;
             }
 
-            // 5. Smoothly move the camera to the final position and make it look at the target.
-            transform.position = Vector3.Lerp(transform.position, finalPosition, smoothSpeed * Time.deltaTime);
+            // Smoothly move and rotate the camera to its final position.
             transform.LookAt(lookAtPoint);
         }
 
         private void ToggleShoulder()
         {
-            // 1. Flip the camera's horizontal offset to switch shoulders.
-            lookAtPointOffset.x *= -1;
+            // Flip the sign of the horizontal offset to switch shoulders.
+            _lookAtPointOffset.x *= -1;
         }
     }
 }

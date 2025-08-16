@@ -7,17 +7,23 @@ namespace ActiveRagdoll
     {
         // --- Inspector: Core Object References ---
         [Header("Core References")]
-        [SerializeField] private Transform _stabilizer;
         [SerializeField] private Transform _animatedTorso;
         [SerializeField] private Rigidbody _physicalTorso;
         [SerializeField] private Animator _animatedAnimator;
         [SerializeField] private AnimatorIKHelper _ikHelper;
         [SerializeField] private Transform _cameraTransform;
+        [SerializeField] private CameraController _cameraController;
 
         // --- Inspector: Movement & Turning ---
         [Header("Movement Settings")]
         [SerializeField] private float _walkSpeedMultiplier = 1.5f;
         [SerializeField] private float _turnSpeed = 2f;
+
+        [Header("Manual Torque Balance")]
+        [SerializeField] private float _uprightTorque = 20000f;
+        [SerializeField] private float _rotationTorque = 500f;
+        [SerializeField] private AnimationCurve _uprightTorqueFunction;
+        [SerializeField] private float _customTorsoAngularDrag = 0.05f;
 
         // --- Inspector: IK Targets & Settings ---
         [Header("IK Targets")]
@@ -29,6 +35,8 @@ namespace ActiveRagdoll
         [Header("IK Control")]
         [SerializeField] private bool _limitAimAngle = true;
         [SerializeField] private float _maxAimAngle = 110f;
+        [SerializeField] private float _swingSensitivity = 0.5f;
+        [SerializeField] private float _maxArmReach = 1.2f;
 
         // --- Inspector: IK Positional Offsets ---
         [Header("Right Hand IK Offsets")]
@@ -52,6 +60,8 @@ namespace ActiveRagdoll
         private int _speedParameterId;
         private bool _rightArmIKActive = false;
         private bool _leftArmIKActive = false;
+        private bool _justPressedRightArm = false;
+        private bool _justPressedLeftArm = false;
 
         void Awake()
         {
@@ -86,10 +96,12 @@ namespace ActiveRagdoll
         {
             _playerControls.Gameplay.Enable();
 
-            _playerControls.Gameplay.RightArmIK.performed += ctx => _rightArmIKActive = true;
+            // When the RightArmIK action is first performed (left-click), set both flags to true.
+            _playerControls.Gameplay.RightArmIK.performed += ctx => { _rightArmIKActive = true; _justPressedRightArm = true; };
             _playerControls.Gameplay.RightArmIK.canceled += ctx => _rightArmIKActive = false;
 
-            _playerControls.Gameplay.LeftArmIK.performed += ctx => _leftArmIKActive = true;
+            // Do the same for the Left Arm IK (right-click).
+            _playerControls.Gameplay.LeftArmIK.performed += ctx => { _leftArmIKActive = true; _justPressedLeftArm = true; };
             _playerControls.Gameplay.LeftArmIK.canceled += ctx => _leftArmIKActive = false;
         }
 
@@ -97,10 +109,11 @@ namespace ActiveRagdoll
         {
             _playerControls.Gameplay.Disable();
 
-            _playerControls.Gameplay.RightArmIK.performed -= ctx => _rightArmIKActive = true;
+            // Make sure to update the unsubscription to match the new format.
+            _playerControls.Gameplay.RightArmIK.performed -= ctx => { _rightArmIKActive = true; _justPressedRightArm = true; };
             _playerControls.Gameplay.RightArmIK.canceled -= ctx => _rightArmIKActive = false;
 
-            _playerControls.Gameplay.LeftArmIK.performed -= ctx => _leftArmIKActive = true;
+            _playerControls.Gameplay.LeftArmIK.performed -= ctx => { _leftArmIKActive = true; _justPressedLeftArm = true; };
             _playerControls.Gameplay.LeftArmIK.canceled -= ctx => _leftArmIKActive = false;
         }
 
@@ -108,30 +121,63 @@ namespace ActiveRagdoll
         {
             float verticalInput = Input.GetAxis("Vertical");
             _animatedAnimator.SetFloat(_speedParameterId, verticalInput * _walkSpeedMultiplier);
+
+            if (_cameraController != null)
+            {
+                if (_rightArmIKActive || _leftArmIKActive)
+                {
+                    _cameraController.SetLock(true);
+                }
+                else
+                {
+                    _cameraController.SetLock(false);
+                }
+            }
         }
 
         void FixedUpdate()
         {
-            // Update the stabilizer to act as a balance and rotation guide.
-            _stabilizer.GetComponent<Rigidbody>().MovePosition(_physicalTorso.position);
-            _stabilizer.GetComponent<Rigidbody>().MoveRotation(transform.rotation);
+            // --- STEP 1: APPLY STABILITY FORCES ---
+            ApplyCustomDrag();
 
-            // Rotate the character controller based on player input.
-            float horizontalInput = Input.GetAxis("Horizontal");
-            transform.Rotate(0, horizontalInput * _turnSpeed, 0);
+            // The character should always try to face where the camera is looking.
+            // We flatten this direction onto the horizontal plane.
+            Vector3 targetDirection = Vector3.ProjectOnPlane(_cameraTransform.forward, Vector3.up).normalized;
 
-            // Pull the root controller along with the physical body's velocity.
+            // --- Upright Torque (Prevents Falling) ---
+            float tiltPercent = Vector3.Angle(_physicalTorso.transform.up, Vector3.up) / 180f;
+            float forceMultiplier = _uprightTorqueFunction.Evaluate(tiltPercent);
+            var rot = Quaternion.FromToRotation(_physicalTorso.transform.up, Vector3.up);
+            var torque = new Vector3(rot.x, rot.y, rot.z) * (_uprightTorque * forceMultiplier);
+            _physicalTorso.AddTorque(torque);
+
+            // --- Rotation Torque (Handles Turning) ---
+            // This torque now makes the physical body turn towards the camera's direction.
+            float directionAnglePercent = Vector3.SignedAngle(_physicalTorso.transform.forward, targetDirection, Vector3.up) / 180f;
+            _physicalTorso.AddRelativeTorque(0, directionAnglePercent * _rotationTorque, 0);
+
+
+            // --- STEP 2: HANDLE MOUSE-DRIVEN ROOT TURNING ---
+            // The root controller also smoothly turns to align with the camera.
+            Quaternion targetRotation = Quaternion.LookRotation(targetDirection);
+            Quaternion newRotation = Quaternion.Slerp(_rootRigidbody.rotation, targetRotation, Time.fixedDeltaTime * _turnSpeed);
+            _rootRigidbody.MoveRotation(newRotation);
+
+
+            // --- STEP 3: UPDATE ROOT MOVEMENT & SYNC ---
+            // This logic remains the same.
             Vector3 positionDifference = _physicalTorso.position - _rootRigidbody.position;
             Vector3 velocityToTarget = positionDifference / Time.fixedDeltaTime;
             _rootRigidbody.velocity = velocityToTarget;
 
-            // Keep the hidden animated body synced with the physical one for IK.
             SyncAnimatedBody();
+            MatchAnimation(); // I've created a helper function for clarity
+        }
 
-            // The core motion matching logic.
+        private void MatchAnimation()
+        {
             for (int i = 0; i < _physicalJoints.Length; i++)
             {
-                // Use i+1 to account for the root bone offset in GetComponentsInChildren.
                 Transform animatedBone = _animatedBones[i + 1];
                 ConfigurableJointExtensions.SetTargetRotationLocal(_physicalJoints[i], animatedBone.localRotation, _initialJointsRotation[i]);
             }
@@ -153,6 +199,14 @@ namespace ActiveRagdoll
 
             // --- Update Left Arm IK ---
             HandleLeftArmIK(aimDirection);
+        }
+
+        private void ApplyCustomDrag()
+        {
+            // This adds a custom, velocity-dependent drag to the torso.
+            var angVel = _physicalTorso.angularVelocity;
+            angVel -= (Mathf.Pow(angVel.magnitude, 2) * _customTorsoAngularDrag) * angVel.normalized;
+            _physicalTorso.angularVelocity = angVel;
         }
 
         private Vector3 CalculateClampedAimDirection()
@@ -194,14 +248,24 @@ namespace ActiveRagdoll
             _ikHelper.RightHandWeight = _rightArmIKActive ? 1.0f : 0.0f;
             if (!_rightArmIKActive) return;
 
-            Vector3 handTargetPosition = _cameraTransform.position
-                                       + (_cameraTransform.right * _handTargetRightOffset)
-                                       + (aimDirection * _handTargetForwardOffset);
-            _rightHandTarget.position = handTargetPosition;
+            // Move the hand based on mouse input.
+            Vector2 mouseDelta = _playerControls.Gameplay.Look.ReadValue<Vector2>();
+            Vector3 movement = (_cameraTransform.right * mouseDelta.x + _cameraTransform.up * mouseDelta.y) * _swingSensitivity * Time.deltaTime;
+            Vector3 goalPosition = _rightHandTarget.position + movement;
 
-            _rightElbowHint.position = handTargetPosition
-                                    - (aimDirection * _elbowHintForwardOffset)
-                                    - (_cameraTransform.right * _elbowHintRightOffset);
+            // Apply the physical leash.
+            Vector3 anchorPoint = _physicalTorso.position;
+            Vector3 vectorFromAnchor = goalPosition - anchorPoint;
+            if (vectorFromAnchor.magnitude > _maxArmReach)
+            {
+                goalPosition = anchorPoint + vectorFromAnchor.normalized * _maxArmReach;
+            }
+            _rightHandTarget.position = goalPosition;
+
+            // A simple, predictable elbow hint position.
+            _rightElbowHint.position = _rightHandTarget.position
+                                     - (_cameraTransform.forward * 0.5f)
+                                     - (_cameraTransform.right * 0.5f);
 
             _ikHelper.RightHandPosition = _rightHandTarget.position;
             _ikHelper.RightHandRotation = Quaternion.LookRotation(aimDirection, _cameraTransform.up);
@@ -213,14 +277,24 @@ namespace ActiveRagdoll
             _ikHelper.LeftHandWeight = _leftArmIKActive ? 1.0f : 0.0f;
             if (!_leftArmIKActive) return;
 
-            Vector3 handTargetPosition = _cameraTransform.position
-                                       + (-_cameraTransform.right * _leftHandRightOffset)
-                                       + (aimDirection * _leftHandForwardOffset);
-            _leftHandTarget.position = handTargetPosition;
+            // Move the hand based on mouse input.
+            Vector2 mouseDelta = _playerControls.Gameplay.Look.ReadValue<Vector2>();
+            Vector3 movement = (_cameraTransform.right * mouseDelta.x + _cameraTransform.up * mouseDelta.y) * _swingSensitivity * Time.deltaTime;
+            Vector3 goalPosition = _leftHandTarget.position + movement;
 
-            _leftElbowHint.position = handTargetPosition
-                                    - (aimDirection * _leftElbowHintForwardOffset)
-                                    + (_cameraTransform.right * _leftElbowHintRightOffset);
+            // Apply the physical leash.
+            Vector3 anchorPoint = _physicalTorso.position;
+            Vector3 vectorFromAnchor = goalPosition - anchorPoint;
+            if (vectorFromAnchor.magnitude > _maxArmReach)
+            {
+                goalPosition = anchorPoint + vectorFromAnchor.normalized * _maxArmReach;
+            }
+            _leftHandTarget.position = goalPosition;
+
+            // A simple, predictable elbow hint position for the left arm.
+            _leftElbowHint.position = _leftHandTarget.position
+                                    - (_cameraTransform.forward * 0.5f)
+                                    + (_cameraTransform.right * 0.5f);
 
             _ikHelper.LeftHandPosition = _leftHandTarget.position;
             _ikHelper.LeftHandRotation = Quaternion.LookRotation(aimDirection, _cameraTransform.up);
@@ -238,9 +312,6 @@ namespace ActiveRagdoll
         {
             if (!Application.isPlaying) return;
 
-            // Draw physics/movement gizmos
-            Gizmos.color = Color.blue;
-            Gizmos.DrawRay(_stabilizer.position, _stabilizer.forward * 2f);
             Gizmos.color = Color.red;
             Gizmos.DrawRay(_physicalTorso.position, _physicalTorso.transform.forward * 1.5f);
             Gizmos.color = Color.yellow;

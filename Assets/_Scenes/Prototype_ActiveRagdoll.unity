@@ -1339,17 +1339,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 83dd15c0c6b987044a44f2a4f5941245, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  target: {fileID: 1247352555}
-  lookSensitivity: 1
-  smoothSpeed: 10
-  minVerticalAngle: -35
-  maxVerticalAngle: 60
-  distance: 1
-  lookAtPointOffset: {x: 0.2, y: 0.3, z: 0}
-  collisionLayers:
+  _target: {fileID: 1247352555}
+  _lookAtPointOffset: {x: 0.3, y: 0.2, z: 0}
+  _lookSensitivity: 1
+  _smoothSpeed: 10
+  _minVerticalAngle: -35
+  _maxVerticalAngle: 60
+  _distance: 1
+  _collisionLayers:
     serializedVersion: 2
-    m_Bits: 256
-  collisionPadding: 0.25
+    m_Bits: 0
+  _collisionPadding: 0.25
 --- !u!65 &701933117
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -1446,14 +1446,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 15
+    positionSpring: 800
+    positionDamper: 8
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 15
+    positionSpring: 800
+    positionDamper: 8
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -3861,14 +3861,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 1000
-    positionDamper: 10
+    positionSpring: 500
+    positionDamper: 5
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 1000
-    positionDamper: 10
+    positionSpring: 500
+    positionDamper: 5
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -3960,28 +3960,61 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6c0f51dcf654c594cab8777d4e5f2515, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _stabilizer: {fileID: 446513351}
   _animatedTorso: {fileID: 568694090}
   _physicalTorso: {fileID: 1247352543}
   _animatedAnimator: {fileID: 1519002229}
   _ikHelper: {fileID: 1519002230}
   _cameraTransform: {fileID: 581979981}
+  _cameraController: {fileID: 581979982}
   _walkSpeedMultiplier: 1.5
-  _turnSpeed: 2
+  _turnSpeed: 5
+  _uprightTorque: 5000
+  _rotationTorque: 500
+  _uprightTorqueFunction:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 2
+      outSlope: 2
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  _customTorsoAngularDrag: 0.05
   _rightHandTarget: {fileID: 211874936}
   _rightElbowHint: {fileID: 1661321834}
   _leftHandTarget: {fileID: 139669703}
   _leftElbowHint: {fileID: 573125789}
   _limitAimAngle: 1
-  _maxAimAngle: 110
-  _handTargetForwardOffset: 1.7
+  _maxAimAngle: 90
+  _swingSensitivity: 0.5
+  _maxArmReach: 1
+  _maxBackwardAngle: 110
+  _maxForwardAngle: 80
+  _handTargetForwardOffset: 1.35
   _handTargetRightOffset: 0
   _elbowHintForwardOffset: 0.2
   _elbowHintRightOffset: 0
-  _leftHandForwardOffset: 1.7
+  _leftHandForwardOffset: 1.5
   _leftHandRightOffset: 0.35
   _leftElbowHintForwardOffset: 0.2
   _leftElbowHintRightOffset: 0
+  _rightArmReadyOffset: {x: 0.5, y: 0.3, z: 0.5}
+  _leftArmReadyOffset: {x: -0.5, y: 0.3, z: 0.5}
 --- !u!54 &1914249518
 Rigidbody:
   m_ObjectHideFlags: 0
