@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace ActiveRagdoll
+namespace OldActiveRagdoll
 {
     public class CameraController : MonoBehaviour
     {

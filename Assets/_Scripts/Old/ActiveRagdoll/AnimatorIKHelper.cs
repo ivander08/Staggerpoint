@@ -1,7 +1,7 @@
 
 using UnityEngine;
 
-namespace ActiveRagdoll
+namespace OldActiveRagdoll
 {
     [RequireComponent(typeof(Animator))]
     public class AnimatorIKHelper : MonoBehaviour
