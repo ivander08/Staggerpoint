@@ -2,40 +2,35 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// script to ragdoll when out of balance
-/// </summary>
 public class Ragdoll : MonoBehaviour
 {
+    [Header("Core References")]
     public ActiveRagdoll walkScript;
-    [Tooltip("The InversKinematics script of the feet bones")]
     public InverseKinematics leftIk, rightIk;
-    [Tooltip("The rigidbody attached to the root bone")]
     public Rigidbody hipsRb;
-    [Tooltip("The higher the angle is the harder it will be to knock over the ragdoll and the better its balance will be.")]
+
+    [Header("Balance Settings")]
     public int fallAngle = 55;
 
     [HideInInspector]
     public bool ragdolled = false;
-    private bool conscious = true;
+    private bool _conscious = true;
 
     void Start()
     {
         //ragdoll();
     }
 
-    // Update is called once per frame
     void Update()
     {
-        if (!ragdolled && conscious) // if its standing
+        if (!ragdolled && _conscious) // if its standing
         {
-            
             float a = Vector3.Angle(hipsRb.transform.up, Vector3.up);
             
             if (a > fallAngle) ragdoll(); //if its unbalanced fall over
             else if (walkScript.falling) ragdoll(); //if there is no floor below to step on fall over
         }
-        if (ragdolled && conscious) // if its knocked down but wakes up
+        if (ragdolled && _conscious) // if its knocked down but wakes up
         {
             if (hipsRb.velocity.magnitude < 0.1) ragdoll();// if it is knocked down and not moving
             else if (hipsRb.velocity.magnitude < 1) StartCoroutine(setConscious(3)); // if it is knocked down but moving too much to get up
@@ -69,10 +64,10 @@ public class Ragdoll : MonoBehaviour
         }
     }
 
-    public IEnumerator setConscious(float time)// makes the ragdoll fall asleep for an amount of time
+    private IEnumerator setConscious(float time)// makes the ragdoll fall asleep for an amount of time
     {
-        conscious = false;
+        _conscious = false;
         yield return new WaitForSeconds(time);
-        conscious = true;
+        _conscious = true;
     }
 }

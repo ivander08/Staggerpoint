@@ -11,9 +11,13 @@ public class PlayerController : MonoBehaviour
     public Transform cameraTransform;
 
     [Header("Movement Settings")]
-    public float maxSpeed = 5.0f;               // <-- ADD THIS - The constant speed we want to maintain
-    public float acceleration = 25.0f;          // <-- ADD THIS - How quickly we reach maxSpeed
+    public float maxSpeed = 5.0f;
+    public float acceleration = 25.0f;
     public float rotationSpeed = 15.0f;
+    [Tooltip("How fast the body must be turning to trigger a repositioning step.")]
+    public float turnSpeedThreshold = 0.8f;
+    [Tooltip("How far the character will step when turning in place.")]
+    public float turnStepDistance = 0.4f;
 
 
     // Private references

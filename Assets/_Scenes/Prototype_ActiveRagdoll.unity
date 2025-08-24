@@ -1699,6 +1699,9 @@ MonoBehaviour:
   stepSize: 0.5
   stepDuration: 0.2
   stepHeight: 1
+  rotationStepThreshold: 30
+  rotationStepMultiplier: 1
+  turningResponseSpeed: 0.1
   physics: 0
   rotationForce: 2000
   rotationSmoothness: 1
