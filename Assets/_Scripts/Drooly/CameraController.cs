@@ -12,7 +12,6 @@ namespace OldActiveRagdoll
 
         [Header("Camera Control")]
         [SerializeField] private float _lookSensitivity = 1.0f;
-        [SerializeField] private float _smoothSpeed = 10.0f;
         [SerializeField] private float _minVerticalAngle = -35.0f;
         [SerializeField] private float _maxVerticalAngle = 60.0f;
 
