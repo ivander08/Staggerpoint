@@ -5,16 +5,16 @@ using UnityEngine;
 public class ActiveRagdoll : MonoBehaviour
 {
     [Header("Core References")]
-    public Transform rootBone;
-    public Transform moveDir;
+    public Transform hipsTransform;
+    public Transform stepGuide;
 
     [Header("IK Targets")]
-    public Transform leftFoot;
-    public Transform rightFoot;
+    public Transform leftFootIKTarget;
+    public Transform rightFootIKTarget;
 
     [Header("Standing Position Values")]
-    public float footGap;
-    public float standHeight;
+    public float footSpacing;
+    public float standingHeight;
 
     [Header("Step Values")]
     public float stepDuration = 0.2f;
@@ -22,13 +22,13 @@ public class ActiveRagdoll : MonoBehaviour
 
     [Header("Directional Step Values")]
     [Tooltip("Step distance for forward/backward movement")]
-    public float stepDistForward = 0.6f;
-    [Tooltip("Step distance for left/right movement")]  
-    public float stepDistStrafe = 0.4f;
-    [Tooltip("Step size for forward/backward movement")]
-    public float stepSizeForward = 0.4f;
-    [Tooltip("Step size for left/right movement")]
-    public float stepSizeStrafe = 0.3f;
+    public float stepThresholdForward = 0.6f;
+    [Tooltip("Step distance for left/right movement")]
+    public float stepThresholdStrafe = 0.4f;
+    [Tooltip("Step prediction distance for forward/backward movement")]
+    public float stepPredictionForward = 0.4f;
+    [Tooltip("Step prediction distance for left/right movement")]
+    public float stepPredictionStrafe = 0.3f;
 
     [Header("Foot Correction")]
     [Tooltip("How far feet can be from ideal position before correcting")]
@@ -37,77 +37,77 @@ public class ActiveRagdoll : MonoBehaviour
     public float idleCorrectionDelay = 1.0f;
 
     [Header("Physics")]
-    public bool physics = false;
-    public int rotationForce = 10;
-    public int rotationSmoothness = 1;
+    public bool useVelocityForMovementDetection = false;
+    public int balanceForce = 10;
+    public int balanceDamping = 1;
     public LayerMask ragdollLayer;
 
-    private Vector3 _lastFrame;
-    private Transform _leftSide, _rightSide;
-    private Vector3 _leftTarget, _rightTarget;
-    private bool _isCurrentlyStepping = false;
+    // Private State
+    private Vector3 _lastHipsPosition;
+    private Transform _leftStepRaycastOrigin, _rightStepRaycastOrigin;
+    private Vector3 _leftFootGroundTarget, _rightFootGroundTarget;
+    private bool _isStepping = false;
     private float _lastMovementTime = 0f;
-    private Vector3 _lastRootRotation;
+    private Vector3 _lastHipsRotation;
+    
+    [HideInInspector]
+    public ConfigurableJoint balanceJoint;
+    [HideInInspector]
+    public Rigidbody balanceTargetBody;
+
+    private Rigidbody _hipsRigidbody;
 
     [HideInInspector]
-    public ConfigurableJoint joint;
-    [HideInInspector]
-    public Rigidbody connectedBody;
-
-    private Rigidbody _rb;
-
-    [HideInInspector]
-    public bool falling;
+    public bool isAirborne;
 
     void Awake()
     {
-        _rb = rootBone.GetComponent<Rigidbody>();
+        _hipsRigidbody = hipsTransform.GetComponent<Rigidbody>();
 
-        connectedBody = new GameObject("joint").AddComponent<Rigidbody>();
-        connectedBody.transform.parent = transform;
-        connectedBody.isKinematic = true;
-        setupJoint();
+        balanceTargetBody = new GameObject("Balance Target Body").AddComponent<Rigidbody>();
+        balanceTargetBody.transform.parent = transform;
+        balanceTargetBody.isKinematic = true;
+        SetupBalanceJoint();
     }
 
     void Start()
     {
-        moveDir.position = rootBone.position;
-        _lastFrame = rootBone.position;
-        _lastRootRotation = rootBone.eulerAngles;
+        stepGuide.position = hipsTransform.position;
+        _lastHipsPosition = hipsTransform.position;
+        _lastHipsRotation = hipsTransform.eulerAngles;
 
-        _leftSide = new GameObject("left side").transform;
-        _rightSide = new GameObject("right side").transform;
+        _leftStepRaycastOrigin = new GameObject("Left Step Raycast Origin").transform;
+        _rightStepRaycastOrigin = new GameObject("Right Step Raycast Origin").transform;
 
-        _leftSide.parent = moveDir;
-        _rightSide.parent = moveDir;
+        _leftStepRaycastOrigin.parent = stepGuide;
+        _rightStepRaycastOrigin.parent = stepGuide;
 
-        _leftSide.localPosition = new Vector3(-footGap, 0, 0);
-        _rightSide.localPosition = new Vector3(footGap, 0, 0);
+        _leftStepRaycastOrigin.localPosition = new Vector3(-footSpacing, 0, 0);
+        _rightStepRaycastOrigin.localPosition = new Vector3(footSpacing, 0, 0);
 
         // Initialize targets
-        Physics.Raycast(_leftSide.position, Vector3.down, out RaycastHit hitL, 5, ~ragdollLayer);
-        Physics.Raycast(_rightSide.position, Vector3.down, out RaycastHit hitR, 5, ~ragdollLayer);
-        _leftTarget = hitL.point;
-        _rightTarget = hitR.point;
+        Physics.Raycast(_leftStepRaycastOrigin.position, Vector3.down, out RaycastHit hitL, 5, ~ragdollLayer);
+        Physics.Raycast(_rightStepRaycastOrigin.position, Vector3.down, out RaycastHit hitR, 5, ~ragdollLayer);
+        _leftFootGroundTarget = hitL.point;
+        _rightFootGroundTarget = hitR.point;
     }
 
     void Update()
     {
-        setMoveDir();
+        UpdateStepGuidePosition();
 
-        Physics.Raycast(_leftSide.position, Vector3.down, out RaycastHit hitL, 5, ~ragdollLayer);
-        Physics.Raycast(_rightSide.position, Vector3.down, out RaycastHit hitR, 5, ~ragdollLayer);
+        Physics.Raycast(_leftStepRaycastOrigin.position, Vector3.down, out RaycastHit hitL, 5, ~ragdollLayer);
+        Physics.Raycast(_rightStepRaycastOrigin.position, Vector3.down, out RaycastHit hitR, 5, ~ragdollLayer);
 
         if (hitL.collider == null || hitR.collider == null)
         {
-            falling = true;
+            isAirborne = true;
         }
         else
         {
-            falling = false;
+            isAirborne = false;
         }
 
-        // Check if we're moving or rotating
         bool isMoving = IsCharacterMoving();
         bool isRotating = IsCharacterRotating();
         
@@ -116,167 +116,155 @@ public class ActiveRagdoll : MonoBehaviour
             _lastMovementTime = Time.time;
         }
 
-        if (!_isCurrentlyStepping)
+        if (!_isStepping)
         {
-            // Regular stepping with directional step distances
-            HandleRegularStepping(hitL, hitR);
-
-            // Foot correction when idle or rotating
+            HandleMovementStepping(hitL, hitR);
+            
             if (!isMoving && (isRotating || Time.time - _lastMovementTime > idleCorrectionDelay))
             {
-                HandleFootCorrection(hitL, hitR);
+                HandleIdleFootCorrection(hitL, hitR);
             }
         }
 
-        // Keep feet rotation synchronized with torso
-        leftFoot.eulerAngles = new Vector3(leftFoot.eulerAngles.x, rootBone.eulerAngles.y, leftFoot.eulerAngles.z);
-        rightFoot.eulerAngles = new Vector3(rightFoot.eulerAngles.x, rootBone.eulerAngles.y, rightFoot.eulerAngles.z);
+        leftFootIKTarget.eulerAngles = new Vector3(leftFootIKTarget.eulerAngles.x, hipsTransform.eulerAngles.y, leftFootIKTarget.eulerAngles.z);
+        rightFootIKTarget.eulerAngles = new Vector3(rightFootIKTarget.eulerAngles.x, hipsTransform.eulerAngles.y, rightFootIKTarget.eulerAngles.z);
 
-        moveDir.eulerAngles = new Vector3(moveDir.eulerAngles.x, rootBone.eulerAngles.y, moveDir.eulerAngles.z);
+        stepGuide.eulerAngles = new Vector3(stepGuide.eulerAngles.x, hipsTransform.eulerAngles.y, stepGuide.eulerAngles.z);
 
-        if (!falling)
+        if (!isAirborne)
         {
-            connectedBody.transform.position = new Vector3(
-                rootBone.position.x,
-                (hitL.point.y + hitR.point.y) / 2 + standHeight,
-                rootBone.position.z
+            balanceTargetBody.transform.position = new Vector3(
+                hipsTransform.position.x,
+                (hitL.point.y + hitR.point.y) / 2 + standingHeight,
+                hipsTransform.position.z
             );
         }
 
-        _lastRootRotation = rootBone.eulerAngles;
+        _lastHipsRotation = hipsTransform.eulerAngles;
     }
 
     private bool IsCharacterMoving()
     {
-        if (physics)
+        if (useVelocityForMovementDetection)
         {
-            return _rb.velocity.magnitude > 0.1f;
+            return _hipsRigidbody.velocity.magnitude > 0.1f;
         }
         else
         {
-            return Vector3.Distance(_lastFrame, rootBone.position) > 0.005f;
+            return Vector3.Distance(_lastHipsPosition, hipsTransform.position) > 0.005f;
         }
     }
 
     private bool IsCharacterRotating()
     {
-        float rotationDiff = Mathf.Abs(Mathf.DeltaAngle(_lastRootRotation.y, rootBone.eulerAngles.y));
-        return rotationDiff > 2f; // 2 degrees per frame threshold
+        float rotationDiff = Mathf.Abs(Mathf.DeltaAngle(_lastHipsRotation.y, hipsTransform.eulerAngles.y));
+        return rotationDiff > 2f;
     }
 
-    private void HandleRegularStepping(RaycastHit hitL, RaycastHit hitR)
+    private void HandleMovementStepping(RaycastHit hitL, RaycastHit hitR)
     {
-        float leftDist = Vector3.Distance(hitL.point, _leftTarget);
-        float rightDist = Vector3.Distance(hitR.point, _rightTarget);
+        float leftDist = Vector3.Distance(hitL.point, _leftFootGroundTarget);
+        float rightDist = Vector3.Distance(hitR.point, _rightFootGroundTarget);
 
-        // Get movement direction to determine step distance and size
         Vector3 movementDir = GetMovementDirection();
-        float currentStepDist = GetStepDistanceForDirection(movementDir);
+        float currentStepThreshold = GetCurrentStepThreshold(movementDir);
 
-        if (leftDist >= currentStepDist || rightDist >= currentStepDist)
+        if (leftDist >= currentStepThreshold || rightDist >= currentStepThreshold)
         {
             if (rightDist > leftDist)
             {
-                _rightTarget = hitR.point;
-                StartCoroutine(step(rightFoot, _rightTarget));
+                _rightFootGroundTarget = hitR.point;
+                StartCoroutine(PerformStep(rightFootIKTarget, _rightFootGroundTarget));
             }
             else
             {
-                _leftTarget = hitL.point;
-                StartCoroutine(step(leftFoot, _leftTarget));
+                _leftFootGroundTarget = hitL.point;
+                StartCoroutine(PerformStep(leftFootIKTarget, _leftFootGroundTarget));
             }
         }
     }
 
-    private void HandleFootCorrection(RaycastHit hitL, RaycastHit hitR)
+    private void HandleIdleFootCorrection(RaycastHit hitL, RaycastHit hitR)
     {
-        // Calculate ideal foot positions based on current stance
         Vector3 idealLeftPos = GetIdealFootPosition(true);
         Vector3 idealRightPos = GetIdealFootPosition(false);
-
-        // Check if feet are too far from ideal positions
-        float leftDrift = Vector3.Distance(leftFoot.position, idealLeftPos);
-        float rightDrift = Vector3.Distance(rightFoot.position, idealRightPos);
+        
+        float leftDrift = Vector3.Distance(leftFootIKTarget.position, idealLeftPos);
+        float rightDrift = Vector3.Distance(rightFootIKTarget.position, idealRightPos);
 
         if (leftDrift > footCorrectionThreshold || rightDrift > footCorrectionThreshold)
         {
-            // Step the foot that's furthest from its ideal position
             if (rightDrift > leftDrift)
             {
-                _rightTarget = hitR.point;
-                StartCoroutine(step(rightFoot, _rightTarget));
+                _rightFootGroundTarget = hitR.point;
+                StartCoroutine(PerformStep(rightFootIKTarget, _rightFootGroundTarget));
             }
             else
             {
-                _leftTarget = hitL.point;
-                StartCoroutine(step(leftFoot, _leftTarget));
+                _leftFootGroundTarget = hitL.point;
+                StartCoroutine(PerformStep(leftFootIKTarget, _leftFootGroundTarget));
             }
         }
     }
 
     private Vector3 GetIdealFootPosition(bool isLeftFoot)
     {
-        Vector3 rootPos = rootBone.position;
-        Vector3 offset = rootBone.right * (isLeftFoot ? -footGap : footGap);
+        Vector3 rootPos = hipsTransform.position;
+        Vector3 offset = hipsTransform.right * (isLeftFoot ? -footSpacing : footSpacing);
         Vector3 idealPos = rootPos + offset;
 
-        // Project to ground
         if (Physics.Raycast(idealPos + Vector3.up * 2f, Vector3.down, out RaycastHit hit, 5f, ~ragdollLayer))
         {
             return hit.point;
         }
         else
         {
-            idealPos.y = rootPos.y - standHeight;
+            idealPos.y = rootPos.y - standingHeight;
             return idealPos;
         }
     }
 
     private Vector3 GetMovementDirection()
     {
-        if (physics)
+        if (useVelocityForMovementDetection)
         {
-            Vector3 vel = _rb.velocity;
+            Vector3 vel = _hipsRigidbody.velocity;
             vel.y = 0;
             return vel.normalized;
         }
         else
         {
-            Vector3 dir = rootBone.position - _lastFrame;
+            Vector3 dir = hipsTransform.position - _lastHipsPosition;
             dir.y = 0;
             return dir.normalized;
         }
     }
 
-    private float GetStepDistanceForDirection(Vector3 movementDir)
+    private float GetCurrentStepThreshold(Vector3 movementDir)
     {
-        if (movementDir.magnitude < 0.1f) return stepDistForward; // Default to forward when not moving
+        if (movementDir.magnitude < 0.1f) return stepThresholdForward;
 
-        // Calculate dot products to determine direction
-        float forwardDot = Mathf.Abs(Vector3.Dot(movementDir, rootBone.forward));
-        float rightDot = Mathf.Abs(Vector3.Dot(movementDir, rootBone.right));
-
-        // Blend between forward and strafe distances based on movement direction
+        float forwardDot = Mathf.Abs(Vector3.Dot(movementDir, hipsTransform.forward));
+        float rightDot = Mathf.Abs(Vector3.Dot(movementDir, hipsTransform.right));
+        
         float forwardInfluence = forwardDot / (forwardDot + rightDot);
-        return Mathf.Lerp(stepDistStrafe, stepDistForward, forwardInfluence);
+        return Mathf.Lerp(stepThresholdStrafe, stepThresholdForward, forwardInfluence);
     }
 
-    private float GetStepSizeForDirection(Vector3 movementDir)
+    private float GetCurrentStepPrediction(Vector3 movementDir)
     {
-        if (movementDir.magnitude < 0.1f) return stepSizeForward; // Default to forward when not moving
+        if (movementDir.magnitude < 0.1f) return stepPredictionForward;
 
-        // Calculate dot products to determine direction
-        float forwardDot = Mathf.Abs(Vector3.Dot(movementDir, rootBone.forward));
-        float rightDot = Mathf.Abs(Vector3.Dot(movementDir, rootBone.right));
-
-        // Blend between forward and strafe sizes based on movement direction
+        float forwardDot = Mathf.Abs(Vector3.Dot(movementDir, hipsTransform.forward));
+        float rightDot = Mathf.Abs(Vector3.Dot(movementDir, hipsTransform.right));
+        
         float forwardInfluence = forwardDot / (forwardDot + rightDot);
-        return Mathf.Lerp(stepSizeStrafe, stepSizeForward, forwardInfluence);
+        return Mathf.Lerp(stepPredictionStrafe, stepPredictionForward, forwardInfluence);
     }
 
-    private IEnumerator step(Transform foot, Vector3 target)
+    private IEnumerator PerformStep(Transform foot, Vector3 target)
     {
-        _isCurrentlyStepping = true;
+        _isStepping = true;
 
         Vector3 startPoint = foot.position;
         Vector3 centerPoint = (startPoint + target) / 2;
@@ -299,77 +287,77 @@ public class ActiveRagdoll : MonoBehaviour
         }
         while (timeElapsed < stepDuration);
 
-        _isCurrentlyStepping = false;
+        _isStepping = false;
     }
 
-    public void setupJoint()
+    public void SetupBalanceJoint()
     {
-        if (joint != null)
-            Destroy(joint);
+        if (balanceJoint != null)
+            Destroy(balanceJoint);
 
-        joint = rootBone.gameObject.AddComponent<ConfigurableJoint>();
+        balanceJoint = hipsTransform.gameObject.AddComponent<ConfigurableJoint>();
 
-        JointDrive driveX = joint.angularXDrive;
-        JointDrive driveYZ = joint.angularYZDrive;
-        JointDrive driveY = joint.yDrive;
+        JointDrive driveX = balanceJoint.angularXDrive;
+        JointDrive driveYZ = balanceJoint.angularYZDrive;
+        JointDrive driveY = balanceJoint.yDrive;
 
-        driveX.positionSpring = rotationForce;
-        driveX.positionDamper = rotationSmoothness;
+        driveX.positionSpring = balanceForce;
+        driveX.positionDamper = balanceDamping;
 
-        driveYZ.positionSpring = rotationForce;
-        driveYZ.positionDamper = rotationSmoothness;
+        driveYZ.positionSpring = balanceForce;
+        driveYZ.positionDamper = balanceDamping;
 
         driveY.positionSpring = 300;
         driveY.positionDamper = 10;
 
-        joint.angularXDrive = driveX;
-        joint.angularYZDrive = driveYZ;
-        joint.yDrive = driveY;
+        balanceJoint.angularXDrive = driveX;
+        balanceJoint.angularYZDrive = driveYZ;
+        balanceJoint.yDrive = driveY;
 
-        connectedBody.transform.position = rootBone.position;
-        connectedBody.transform.rotation = rootBone.rotation;
-        joint.connectedBody = connectedBody;
-        connectedBody.transform.rotation = Quaternion.identity;
+        balanceTargetBody.transform.position = hipsTransform.position;
+        balanceTargetBody.transform.rotation = hipsTransform.rotation;
+        balanceJoint.connectedBody = balanceTargetBody;
+        balanceTargetBody.transform.rotation = Quaternion.identity;
     }
 
-    public void setMoveDir()
+    public void UpdateStepGuidePosition()
     {
-        Vector3 movementDir = Vector3.zero;
-        float currentStepSize = stepSizeForward; // Default
+        Vector3 movementDir;
+        float currentStepPrediction = stepPredictionForward; // Default
         
-        if (physics)
+        if (useVelocityForMovementDetection)
         {
-            if (_rb.velocity.magnitude > 0.3f)
+            if (_hipsRigidbody.velocity.magnitude > 0.3f)
             {
-                Vector3 dir = _rb.velocity;
+                Vector3 dir = _hipsRigidbody.velocity;
                 dir.Normalize();
                 dir.y = 0;
                 movementDir = dir;
-                currentStepSize = GetStepSizeForDirection(movementDir);
-                moveDir.position = rootBone.position + dir * currentStepSize;
+                currentStepPrediction = GetCurrentStepPrediction(movementDir);
+                stepGuide.position = hipsTransform.position + dir * currentStepPrediction;
             }
             else
             {
-                moveDir.position = rootBone.position;
+                stepGuide.position = hipsTransform.position;
             }
         }
         else
         {
-            if (Vector3.Distance(_lastFrame, rootBone.position) > 0.005f)
+            if (Vector3.Distance(_lastHipsPosition, hipsTransform.position) > 0.005f)
             {
-                Vector3 dir = rootBone.position - _lastFrame;
+                Vector3 dir = hipsTransform.position - _lastHipsPosition;
                 dir.Normalize();
                 dir.y = 0;
                 movementDir = dir;
-                currentStepSize = GetStepSizeForDirection(movementDir);
-                moveDir.position = rootBone.position + dir * currentStepSize;
+                currentStepPrediction = GetCurrentStepPrediction(movementDir);
+                stepGuide.position = hipsTransform.position + dir * currentStepPrediction;
             }
             else
             {
-                moveDir.position = rootBone.position;
+                stepGuide.position = hipsTransform.position;
             }
 
-            _lastFrame = rootBone.position;
+            _lastHipsPosition = hipsTransform.position;
         }
     }
 }

@@ -1671,7 +1671,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2caed0ef1e980c44895b2da8d303a62f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  walkScript: {fileID: 282379891}
+  activeRagdoll: {fileID: 282379891}
   leftIk: {fileID: 1412514785}
   rightIk: {fileID: 2066040509}
   hipsRb: {fileID: 947258001}
@@ -1689,29 +1689,29 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 89794b833b187d54382108c09945575d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  rootBone: {fileID: 1741255110}
-  moveDir: {fileID: 428767191}
-  leftFoot: {fileID: 563013141}
-  rightFoot: {fileID: 441677117}
-  footGap: 0.2
-  standHeight: 0.6
+  hipsTransform: {fileID: 1741255110}
+  stepGuide: {fileID: 428767191}
+  leftFootIKTarget: {fileID: 563013141}
+  rightFootIKTarget: {fileID: 441677117}
+  footSpacing: 0.2
+  standingHeight: 0.6
   stepDuration: 0.2
   stepHeight: 1
-  stepDistForward: 1
-  stepDistStrafe: 0.3
-  stepSizeForward: 0.6
-  stepSizeStrafe: 0.3
+  stepThresholdForward: 0.8
+  stepThresholdStrafe: 0.3
+  stepPredictionForward: 0.6
+  stepPredictionStrafe: 0.3
   footCorrectionThreshold: 0.05
   idleCorrectionDelay: 1
-  physics: 1
-  rotationForce: 2000
-  rotationSmoothness: 1
+  useVelocityForMovementDetection: 1
+  balanceForce: 2000
+  balanceDamping: 1
   ragdollLayer:
     serializedVersion: 2
     m_Bits: 128
-  joint: {fileID: 0}
-  connectedBody: {fileID: 0}
-  falling: 0
+  balanceJoint: {fileID: 0}
+  balanceTargetBody: {fileID: 0}
+  isAirborne: 0
 --- !u!114 &282379892
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1726,7 +1726,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   activeRagdoll: {fileID: 282379891}
   cameraTransform: {fileID: 581979981}
-  maxSpeed: 5
+  maxSpeed: 2.5
   acceleration: 1
   rotationSpeed: 3
 --- !u!153 &284583520
@@ -3400,7 +3400,6 @@ MonoBehaviour:
   _target: {fileID: 1741255110}
   _lookAtPointOffset: {x: 0.5, y: 0.35, z: 0}
   _lookSensitivity: 1
-  _smoothSpeed: 10
   _minVerticalAngle: -35
   _maxVerticalAngle: 60
   _distance: 1.5

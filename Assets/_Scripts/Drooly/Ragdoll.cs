@@ -5,7 +5,7 @@ using UnityEngine;
 public class Ragdoll : MonoBehaviour
 {
     [Header("Core References")]
-    public ActiveRagdoll walkScript;
+    public ActiveRagdoll activeRagdoll; // Renamed from walkScript for clarity
     public InverseKinematics leftIk, rightIk;
     public Rigidbody hipsRb;
 
@@ -16,55 +16,54 @@ public class Ragdoll : MonoBehaviour
     public bool ragdolled = false;
     private bool _conscious = true;
 
-    void Start()
-    {
-        //ragdoll();
-    }
-
     void Update()
     {
-        if (!ragdolled && _conscious) // if its standing
+        if (!ragdolled && _conscious)
         {
             float a = Vector3.Angle(hipsRb.transform.up, Vector3.up);
             
-            if (a > fallAngle) ragdoll(); //if its unbalanced fall over
-            else if (walkScript.falling) ragdoll(); //if there is no floor below to step on fall over
+            // Use the new isAirborne variable
+            if (a > fallAngle) ToggleRagdoll();
+            else if (activeRagdoll.isAirborne) ToggleRagdoll();
         }
-        if (ragdolled && _conscious) // if its knocked down but wakes up
+        if (ragdolled && _conscious)
         {
-            if (hipsRb.velocity.magnitude < 0.1) ragdoll();// if it is knocked down and not moving
-            else if (hipsRb.velocity.magnitude < 1) StartCoroutine(setConscious(3)); // if it is knocked down but moving too much to get up
+            if (hipsRb.velocity.magnitude < 0.1) ToggleRagdoll();
+            else if (hipsRb.velocity.magnitude < 1) StartCoroutine(SetConscious(3));
         }
     }
 
-    public void ragdoll()
+    // Renamed from ragdoll() to be more descriptive
+    public void ToggleRagdoll()
     {
         if (!ragdolled) // fall down
         {
-            Destroy(walkScript.joint);
+            // Destroy the specific joint component by its variable name
+            Destroy(activeRagdoll.balanceJoint);
             hipsRb.useGravity = true;
 
-            walkScript.enabled = false;
+            activeRagdoll.enabled = false;
             leftIk.enabled = false;
             rightIk.enabled = false;
 
             ragdolled = true;
-            StartCoroutine(setConscious(5));
+            StartCoroutine(SetConscious(5));
         }
         else // get up
         {
-            walkScript.enabled = true;
+            activeRagdoll.enabled = true;
             leftIk.enabled = true;
             rightIk.enabled = true;
-            walkScript.setupJoint();
+            // Use the new, clearer function name
+            activeRagdoll.SetupBalanceJoint();
             hipsRb.useGravity = false;
 
             ragdolled = false;
-            StartCoroutine(setConscious(3));
+            StartCoroutine(SetConscious(3));
         }
     }
 
-    private IEnumerator setConscious(float time)// makes the ragdoll fall asleep for an amount of time
+    private IEnumerator SetConscious(float time)
     {
         _conscious = false;
         yield return new WaitForSeconds(time);
