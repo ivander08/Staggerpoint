@@ -1633,6 +1633,7 @@ GameObject:
   - component: {fileID: 282379891}
   - component: {fileID: 282379890}
   - component: {fileID: 282379892}
+  - component: {fileID: 282379893}
   m_Layer: 0
   m_Name: DroolyActiveRagdoll
   m_TagString: Untagged
@@ -1657,6 +1658,8 @@ Transform:
   - {fileID: 563013141}
   - {fileID: 441677117}
   - {fileID: 428767191}
+  - {fileID: 1266774499}
+  - {fileID: 1221933083}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &282379890
@@ -1696,7 +1699,7 @@ MonoBehaviour:
   footSpacing: 0.2
   standingHeight: 0.6
   stepDuration: 0.2
-  stepHeight: 1
+  stepHeight: 0.8
   stepThresholdForward: 0.8
   stepThresholdStrafe: 0.3
   stepPredictionForward: 0.6
@@ -1704,8 +1707,8 @@ MonoBehaviour:
   footCorrectionThreshold: 0.05
   idleCorrectionDelay: 1
   useVelocityForMovementDetection: 1
-  balanceForce: 2000
-  balanceDamping: 1
+  balanceForce: 1000
+  balanceDamping: 10
   ragdollLayer:
     serializedVersion: 2
     m_Bits: 128
@@ -1729,6 +1732,35 @@ MonoBehaviour:
   maxSpeed: 2.5
   acceleration: 1
   rotationSpeed: 3
+--- !u!114 &282379893
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 282379888}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 150d38e9b14679942928079b510837e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  activeRagdoll: {fileID: 282379891}
+  cameraController: {fileID: 581979982}
+  rightHandRigidbody: {fileID: 797850961}
+  rightShoulderAnchor: {fileID: 1283932523}
+  rightArmRoot: {fileID: 1741255113}
+  leftHandRigidbody: {fileID: 2001614738}
+  leftShoulderAnchor: {fileID: 1570364188}
+  leftArmRoot: {fileID: 1741255112}
+  rightHandIKTarget: {fileID: 1221933083}
+  leftHandIKTarget: {fileID: 1266774499}
+  followForce: 15000
+  rotateTorque: 1500
+  swingSensitivity: 0.5
+  swingRadius: 1.2
+  swingAngleAcrossBody: 45
+  swingAngleOutward: 90
+  maxVerticalSwingAngle: 80
 --- !u!153 &284583520
 ConfigurableJoint:
   m_ObjectHideFlags: 0
@@ -2554,7 +2586,7 @@ GameObject:
   m_Component:
   - component: {fileID: 441677117}
   m_Layer: 0
-  m_Name: Right IK Target
+  m_Name: RightFootIKTarget
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3000,14 +3032,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 10
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 10
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -3091,7 +3123,7 @@ GameObject:
   m_Component:
   - component: {fileID: 563013141}
   m_Layer: 0
-  m_Name: Left IK Target
+  m_Name: LeftFootIKTarget
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3982,14 +4014,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 10
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 10
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -4438,14 +4470,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 10
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 10
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -4996,14 +5028,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 10
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 10
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -6137,14 +6169,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 10
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 10
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -8676,6 +8708,37 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.15, y: 0.4, z: 0.15}
   m_Center: {x: 0, y: 0.18, z: 0}
+--- !u!1 &1221933082
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1221933083}
+  m_Layer: 0
+  m_Name: RightHandIKTarget
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1221933083
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1221933082}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.75, y: 1, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 282379889}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!153 &1239481866
 ConfigurableJoint:
   m_ObjectHideFlags: 0
@@ -10191,6 +10254,68 @@ MonoBehaviour:
   _swingAngleAcrossBody: 60
   _swingAngleOutward: 110
   _maxVerticalSwingAngle: 80
+--- !u!1 &1266774498
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1266774499}
+  m_Layer: 0
+  m_Name: LeftHandIKTarget
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1266774499
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1266774498}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.75, y: 1, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 282379889}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1283932522
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1283932523}
+  m_Layer: 7
+  m_Name: RightShoulderAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1283932523
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1283932522}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.181, y: 0.068, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1741255111}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &1294405271
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -11510,6 +11635,37 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4fb0cc1153bf31f4abac869c0cf5b9de, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &1570364187
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1570364188}
+  m_Layer: 7
+  m_Name: LeftShoulderAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1570364188
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1570364187}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.181, y: 0.068, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1741255111}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!153 &1572530663
 ConfigurableJoint:
   m_ObjectHideFlags: 0
@@ -13339,6 +13495,14 @@ PrefabInstance:
         type: 3}
       insertIndex: -1
       addedObject: {fileID: 240573919}
+    - targetCorrespondingSourceObject: {fileID: -6336848214756189623, guid: 932aab0038354ba42a7e6ca0239b940f,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1570364188}
+    - targetCorrespondingSourceObject: {fileID: -6336848214756189623, guid: 932aab0038354ba42a7e6ca0239b940f,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1283932523}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: -5966699263135361453, guid: 932aab0038354ba42a7e6ca0239b940f,
         type: 3}
@@ -13576,6 +13740,24 @@ PrefabInstance:
 --- !u!4 &1741255110 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -7732699155771336060, guid: 932aab0038354ba42a7e6ca0239b940f,
+    type: 3}
+  m_PrefabInstance: {fileID: 1741255109}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &1741255111 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -6336848214756189623, guid: 932aab0038354ba42a7e6ca0239b940f,
+    type: 3}
+  m_PrefabInstance: {fileID: 1741255109}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &1741255112 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6475035683282261100, guid: 932aab0038354ba42a7e6ca0239b940f,
+    type: 3}
+  m_PrefabInstance: {fileID: 1741255109}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &1741255113 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -24890760938342970, guid: 932aab0038354ba42a7e6ca0239b940f,
     type: 3}
   m_PrefabInstance: {fileID: 1741255109}
   m_PrefabAsset: {fileID: 0}
@@ -14174,14 +14356,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 10
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 10
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -15237,14 +15419,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 10
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 10
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -16007,14 +16189,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 10
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 10
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
