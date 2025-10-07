@@ -1701,14 +1701,15 @@ MonoBehaviour:
   standingHeight: 0.6
   stepDuration: 0.2
   stepHeight: 0.8
+  baseStrideLength: 0.4
+  maxStrideLength: 0.8
   minStepDistance: 0.5
-  maxStepDistance: 1.2
-  stabilityThreshold: 1.2
-  stepPredictionTime: 0.2
-  minVelocityForPrediction: 2
+  stabilityThreshold: 1
+  predictionTime: 0.2
+  urgentVelocityThreshold: 1
   footCorrectionThreshold: 0.2
   idleCorrectionDelay: 0.5
-  movementVelocityThreshold: 0.3
+  idleVelocityThreshold: 0.2
   balanceForce: 1000
   balanceDamping: 10
   ragdollLayer:
@@ -1776,7 +1777,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   hipsRigidbody: {fileID: 947258001}
-  pushForce: 800
+  pushForce: 400
 --- !u!153 &284583520
 ConfigurableJoint:
   m_ObjectHideFlags: 0

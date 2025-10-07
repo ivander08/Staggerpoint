@@ -13,30 +13,34 @@ public class ActiveRagdoll : MonoBehaviour
     public Transform rightFootIKTarget;
 
     [Header("Standing Position Values")]
-    public float footSpacing = 0.3f;  // INCREASED: was 0.2
+    public float footSpacing = 0.3f;
     public float standingHeight = 0.9f;
 
     [Header("Step Values")]
     public float stepDuration = 0.2f;
     public float stepHeight = 0.3f;
+    [Tooltip("Base stride length for normal walking")]
+    public float baseStrideLength = 0.4f;
+    [Tooltip("Maximum stride length for urgent steps")]
+    public float maxStrideLength = 0.8f;
+    [Tooltip("Minimum distance before considering a step")]
     public float minStepDistance = 0.15f;
-    public float maxStepDistance = 1.2f;
 
-    [Header("Center of Mass Balance")]
-    [Tooltip("Distance CoM can be from support center before stepping (as ratio of foot spacing)")]
-    public float stabilityThreshold = 1.2f;  // INCREASED: was 0.7
-    [Tooltip("How far ahead to place step based on CoM velocity")]
-    public float stepPredictionTime = 0.15f;  // REDUCED: was 0.3
-    [Tooltip("Minimum CoM velocity to trigger velocity-based stepping")]
-    public float minVelocityForPrediction = 0.5f;
+    [Header("Balance Thresholds")]
+    [Tooltip("How far CoM can drift from support center before stepping (in meters)")]
+    public float stabilityThreshold = 0.4f;
+    [Tooltip("How far ahead to predict CoM position based on velocity")]
+    public float predictionTime = 0.2f;
+    [Tooltip("Velocity at which we start taking longer strides")]
+    public float urgentVelocityThreshold = 1.0f;
 
     [Header("Foot Correction")]
-    [Tooltip("How far feet can be from ideal position before correcting")]
+    [Tooltip("How far feet can drift from ideal before correcting")]
     public float footCorrectionThreshold = 0.15f;
-    [Tooltip("Time to wait before correcting foot positions when idle")]
+    [Tooltip("Time idle before correcting stance")]
     public float idleCorrectionDelay = 1.0f;
-    [Tooltip("Velocity threshold to consider character as 'moving' (disables correction)")]
-    public float movementVelocityThreshold = 0.3f;
+    [Tooltip("Velocity threshold for 'idle' state")]
+    public float idleVelocityThreshold = 0.2f;
 
     [Header("Physics")]
     public int balanceForce = 10;
@@ -46,16 +50,15 @@ public class ActiveRagdoll : MonoBehaviour
     // Private State
     private Vector3 _leftFootGroundTarget, _rightFootGroundTarget;
     private bool _isStepping = false;
-    private float _lastMovementTime = 0f;
+    private float _lastStepTime = 0f;
+    private bool _lastStepWasLeft = false;
+    private int _consecutiveSameFootSteps = 0;
     private Rigidbody _hipsRigidbody;
     private List<Rigidbody> _allRigidbodies = new List<Rigidbody>();
 
-    [HideInInspector]
-    public ConfigurableJoint balanceJoint;
-    [HideInInspector]
-    public Rigidbody balanceTargetBody;
-    [HideInInspector]
-    public bool isAirborne;
+    [HideInInspector] public ConfigurableJoint balanceJoint;
+    [HideInInspector] public Rigidbody balanceTargetBody;
+    [HideInInspector] public bool isAirborne;
 
     // Center of Mass tracking
     private Vector3 _centerOfMass;
@@ -77,15 +80,9 @@ public class ActiveRagdoll : MonoBehaviour
     {
         stepGuide.position = hipsTransform.position;
 
-        if (Physics.Raycast(hipsTransform.position + hipsTransform.right * -footSpacing, Vector3.down, out RaycastHit hitL, 5, ~ragdollLayer))
-            _leftFootGroundTarget = hitL.point;
-        else
-            _leftFootGroundTarget = hipsTransform.position + hipsTransform.right * -footSpacing + Vector3.down * standingHeight;
-
-        if (Physics.Raycast(hipsTransform.position + hipsTransform.right * footSpacing, Vector3.down, out RaycastHit hitR, 5, ~ragdollLayer))
-            _rightFootGroundTarget = hitR.point;
-        else
-            _rightFootGroundTarget = hipsTransform.position + hipsTransform.right * footSpacing + Vector3.down * standingHeight;
+        // Initialize foot positions
+        _leftFootGroundTarget = GetGroundPoint(hipsTransform.position - hipsTransform.right * footSpacing);
+        _rightFootGroundTarget = GetGroundPoint(hipsTransform.position + hipsTransform.right * footSpacing);
 
         leftFootIKTarget.position = _leftFootGroundTarget;
         rightFootIKTarget.position = _rightFootGroundTarget;
@@ -95,6 +92,7 @@ public class ActiveRagdoll : MonoBehaviour
 
     void Update()
     {
+        // Update CoM tracking
         _centerOfMass = CalculateCenterOfMass();
         _centerOfMassVelocity = (_centerOfMass - _lastCenterOfMass) / Time.deltaTime;
         _lastCenterOfMass = _centerOfMass;
@@ -102,24 +100,30 @@ public class ActiveRagdoll : MonoBehaviour
         CheckAirborne();
         UpdateStepGuidePosition();
 
+        // Handle stepping logic
         if (!_isStepping && !isAirborne)
         {
-            HandleCenterOfMassStepping();
+            if (ShouldTakeStep(out StepInfo stepInfo))
+            {
+                ExecuteStep(stepInfo);
+            }
+            else if (IsIdle() && ShouldCorrectStance(out bool correctLeft))
+            {
+                ExecuteStanceCorrection(correctLeft);
+            }
         }
 
-        leftFootIKTarget.eulerAngles = new Vector3(leftFootIKTarget.eulerAngles.x, hipsTransform.eulerAngles.y, leftFootIKTarget.eulerAngles.z);
-        rightFootIKTarget.eulerAngles = new Vector3(rightFootIKTarget.eulerAngles.x, hipsTransform.eulerAngles.y, rightFootIKTarget.eulerAngles.z);
+        // Align foot rotations with hips
+        AlignFootRotations();
 
+        // Update balance target
         if (!isAirborne)
         {
-            Vector3 avgFootPos = (_leftFootGroundTarget + _rightFootGroundTarget) / 2f;
-            balanceTargetBody.transform.position = new Vector3(
-                hipsTransform.position.x,
-                avgFootPos.y + standingHeight,
-                hipsTransform.position.z
-            );
+            UpdateBalanceTarget();
         }
     }
+
+    #region Center of Mass
 
     private Vector3 CalculateCenterOfMass()
     {
@@ -138,198 +142,342 @@ public class ActiveRagdoll : MonoBehaviour
         return totalMass > 0 ? com / totalMass : hipsTransform.position;
     }
 
-    private void CheckAirborne()
-    {
-        bool leftGrounded = Physics.Raycast(leftFootIKTarget.position + Vector3.up * 0.1f, Vector3.down, 0.3f, ~ragdollLayer);
-        bool rightGrounded = Physics.Raycast(rightFootIKTarget.position + Vector3.up * 0.1f, Vector3.down, 0.3f, ~ragdollLayer);
+    #endregion
 
-        isAirborne = !leftGrounded && !rightGrounded;
+    #region Step Decision Logic
+
+    private struct StepInfo
+    {
+        public bool stepLeft;
+        public Vector3 targetPosition;
+        public float urgency; // 0-1, affects step speed/height
     }
 
-    private void HandleCenterOfMassStepping()
+    private bool ShouldTakeStep(out StepInfo stepInfo)
     {
-        Vector3 comGroundProjection = _centerOfMass;
-        comGroundProjection.y = (_leftFootGroundTarget.y + _rightFootGroundTarget.y) / 2f;
+        stepInfo = new StepInfo();
 
+        // Get current support center and CoM projection
         Vector3 supportCenter = (_leftFootGroundTarget + _rightFootGroundTarget) / 2f;
+        Vector3 comGroundProj = new Vector3(_centerOfMass.x, supportCenter.y, _centerOfMass.z);
 
-        Vector3 comOffset = comGroundProjection - supportCenter;
+        // Calculate current offset
+        Vector3 comOffset = comGroundProj - supportCenter;
         comOffset.y = 0;
 
-        // FIXED: Use intended foot spacing, not current distance between feet
-        float stabilityRadius = footSpacing * stabilityThreshold;
+        // Predict future CoM position
+        Vector3 horizontalVelocity = new Vector3(_centerOfMassVelocity.x, 0, _centerOfMassVelocity.z);
+        Vector3 predictedComOffset = comOffset + horizontalVelocity * predictionTime;
 
-        Vector3 predictedComOffset = comOffset;
-        if (_centerOfMassVelocity.magnitude > minVelocityForPrediction)
+        // FIXED: Use absolute distance, not ratio of footSpacing
+        float stabilityRadius = stabilityThreshold;
+
+        // Check if we need to step
+        float instability = predictedComOffset.magnitude;
+        
+        // Also check current instability (without prediction) to avoid over-predicting
+        float currentInstability = comOffset.magnitude;
+        
+        // Only step if EITHER predicted OR current instability exceeds threshold
+        // This prevents over-eager stepping from velocity prediction
+        if (instability <= stabilityRadius && currentInstability <= stabilityRadius * 1.2f)
+            return false;
+
+        // Determine urgency based on how far out of balance we are
+        stepInfo.urgency = Mathf.Clamp01((instability - stabilityRadius) / stabilityRadius);
+
+        // Determine which foot should step
+        stepInfo.stepLeft = DetermineSteppingFoot(predictedComOffset, horizontalVelocity);
+
+        // ANTI-STUCK MECHANISM: If same foot has stepped 3+ times in a row, force alternate
+        if (stepInfo.stepLeft == _lastStepWasLeft && _consecutiveSameFootSteps >= 2)
         {
-            Vector3 velocityContribution = _centerOfMassVelocity;
-            velocityContribution.y = 0;
-            // DAMPED: Limit prediction to avoid overshooting
-            float predictionMagnitude = Mathf.Min(velocityContribution.magnitude * stepPredictionTime, stabilityRadius * 1.2f);
-            predictedComOffset += velocityContribution.normalized * predictionMagnitude;
+            Debug.LogWarning($"[ANTI-STUCK] Same foot stepped {_consecutiveSameFootSteps + 1} times! Forcing alternate to {(!stepInfo.stepLeft ? "LEFT" : "RIGHT")}");
+            stepInfo.stepLeft = !stepInfo.stepLeft;
         }
 
-        float instabilityDistance = predictedComOffset.magnitude;
+        // Calculate target position
+        stepInfo.targetPosition = CalculateStepTarget(
+            stepInfo.stepLeft, 
+            predictedComOffset, 
+            horizontalVelocity,
+            stepInfo.urgency
+        );
 
-        Vector3 horizontalComVel = _centerOfMassVelocity;
-        horizontalComVel.y = 0;
-        Debug.Log($"[STEPPING CHECK] CoM Offset: {instabilityDistance:F2} | Threshold: {stabilityRadius:F2} | Stable: {instabilityDistance <= stabilityRadius} | CoM Velocity: {horizontalComVel.magnitude:F2}");
+        Debug.Log($"[STEP DECISION] Current: {currentInstability:F2} | Predicted: {instability:F2} | Threshold: {stabilityRadius:F2} | Urgency: {stepInfo.urgency:F2} | Stepping: {(stepInfo.stepLeft ? "LEFT" : "RIGHT")} | ConsecutiveSameFoot: {_consecutiveSameFootSteps}");
 
-        if (instabilityDistance > stabilityRadius)
-        {
-            Debug.Log($">>> INSTABILITY DETECTED - Taking CoM-based step");
-            
-            Vector3 stepDirection = predictedComOffset.normalized;
-            Vector3 desiredStepPosition = supportCenter + stepDirection * Mathf.Min(instabilityDistance, maxStepDistance);
-
-            if (Physics.Raycast(desiredStepPosition + Vector3.up * 2f, Vector3.down, out RaycastHit hit, 5f, ~ragdollLayer))
-            {
-                desiredStepPosition = hit.point;
-            }
-
-            Vector3 newSupportCenterTarget = desiredStepPosition;
-
-            float leftDist = Vector3.Distance(_leftFootGroundTarget, newSupportCenterTarget);
-            float rightDist = Vector3.Distance(_rightFootGroundTarget, newSupportCenterTarget);
-            float leftAlignment = Vector3.Dot((_leftFootGroundTarget - supportCenter).normalized, stepDirection);
-            float rightAlignment = Vector3.Dot((_rightFootGroundTarget - supportCenter).normalized, stepDirection);
-            bool moveLeft = (leftDist > rightDist) || (leftAlignment < rightAlignment && leftDist > minStepDistance);
-
-            Vector3 finalStepTarget;
-
-            if (moveLeft)
-            {
-                finalStepTarget = newSupportCenterTarget - (hipsTransform.right * footSpacing / 2f);
-                Debug.Log($">>> STEPPING LEFT FOOT to {finalStepTarget}");
-            }
-            else
-            {
-                finalStepTarget = newSupportCenterTarget + (hipsTransform.right * footSpacing / 2f);
-                Debug.Log($">>> STEPPING RIGHT FOOT to {finalStepTarget}");
-            }
-
-            if (Physics.Raycast(finalStepTarget + Vector3.up, Vector3.down, out RaycastHit finalHit, 3f, ~ragdollLayer))
-            {
-                finalStepTarget = finalHit.point;
-            }
-
-            if (moveLeft)
-            {
-                _leftFootGroundTarget = finalStepTarget;
-                StartCoroutine(PerformStep(leftFootIKTarget, _leftFootGroundTarget));
-            }
-            else
-            {
-                _rightFootGroundTarget = finalStepTarget;
-                StartCoroutine(PerformStep(rightFootIKTarget, _rightFootGroundTarget));
-            }
-
-            _lastMovementTime = Time.time;
-        }
-        // FIXED: Only correct feet when truly idle (low velocity)
-        else if (IsCharacterIdle())
-        {
-            HandleIdleFootCorrection();
-        }
+        return true;
     }
 
-    // NEW: Check if character is actually idle
-    private bool IsCharacterIdle()
+    private bool DetermineSteppingFoot(Vector3 comOffset, Vector3 velocity)
     {
-        // Get horizontal velocity
-        Vector3 horizontalVelocity = _centerOfMassVelocity;
-        horizontalVelocity.y = 0;
+        // Calculate distances from each foot to the predicted CoM position
+        Vector3 supportCenter = (_leftFootGroundTarget + _rightFootGroundTarget) / 2f;
+        Vector3 predictedComPos = supportCenter + comOffset + new Vector3(velocity.x, 0, velocity.z) * predictionTime;
         
-        // Character is idle if velocity is low AND enough time has passed
-        bool hasLowVelocity = horizontalVelocity.magnitude < movementVelocityThreshold;
-        bool hasBeenStill = Time.time - _lastMovementTime > idleCorrectionDelay;
+        float leftDistToCom = Vector3.Distance(_leftFootGroundTarget, predictedComPos);
+        float rightDistToCom = Vector3.Distance(_rightFootGroundTarget, predictedComPos);
+
+        // Primary rule: Step with the foot that's FARTHER from where the CoM is going
+        // This allows the closer foot to stay planted while the far foot reaches out
+        bool stepLeftByDistance = leftDistToCom > rightDistToCom;
+
+        // Check if one foot is significantly behind the other in the direction of motion
+        Vector3 motionDir = velocity.magnitude > 0.1f ? velocity.normalized : comOffset.normalized;
+        motionDir.y = 0;
         
-        Debug.Log($"Idle Check: Velocity={horizontalVelocity.magnitude:F3} (threshold={movementVelocityThreshold}) | TimeSinceMove={Time.time - _lastMovementTime:F2}s (delay={idleCorrectionDelay}) | IsIdle={hasLowVelocity && hasBeenStill}");
+        float leftProgressInMotion = Vector3.Dot(_leftFootGroundTarget - supportCenter, motionDir);
+        float rightProgressInMotion = Vector3.Dot(_rightFootGroundTarget - supportCenter, motionDir);
+        
+        // If one foot is significantly behind, prioritize stepping with that foot
+        float trailingDifference = Mathf.Abs(leftProgressInMotion - rightProgressInMotion);
+        if (trailingDifference > baseStrideLength * 0.4f)
+        {
+            bool leftIsBehind = leftProgressInMotion < rightProgressInMotion;
+            Debug.Log($"[FOOT SELECTION] Trailing detected - Left progress: {leftProgressInMotion:F2} | Right progress: {rightProgressInMotion:F2} | Stepping {(leftIsBehind ? "LEFT" : "RIGHT")} (trailing foot)");
+            return leftIsBehind;
+        }
+
+        // Check lateral component - are we falling to one side?
+        float lateralComponent = Vector3.Dot(comOffset, hipsTransform.right);
+        
+        // If falling strongly to one side, prefer stepping with that side's foot
+        if (Mathf.Abs(lateralComponent) > footSpacing * 0.5f)
+        {
+            bool stepLeftByLateral = lateralComponent < 0;
+            Debug.Log($"[FOOT SELECTION] Lateral fall detected: {lateralComponent:F2} | Stepping {(stepLeftByLateral ? "LEFT" : "RIGHT")}");
+            
+            // But don't step with a foot that just stepped recently
+            float timeSinceLastStep = Time.time - _lastStepTime;
+            if (timeSinceLastStep < stepDuration * 1.5f)
+            {
+                // Very recent step - prefer alternating unless absolutely necessary
+                bool lastStepWasLeft = Vector3.Distance(leftFootIKTarget.position, _leftFootGroundTarget) < 0.01f;
+                if (lastStepWasLeft == stepLeftByLateral)
+                {
+                    Debug.Log($"[FOOT SELECTION] Overriding - same foot stepped recently, alternating to {(!stepLeftByLateral ? "LEFT" : "RIGHT")}");
+                    return !stepLeftByLateral;
+                }
+            }
+            
+            return stepLeftByLateral;
+        }
+
+        // Default: step with foot farther from predicted CoM
+        Debug.Log($"[FOOT SELECTION] Distance-based - Left dist: {leftDistToCom:F2} | Right dist: {rightDistToCom:F2} | Stepping {(stepLeftByDistance ? "LEFT" : "RIGHT")}");
+        return stepLeftByDistance;
+    }
+
+    private Vector3 CalculateStepTarget(bool stepLeft, Vector3 comOffset, Vector3 velocity, float urgency)
+    {
+        // Determine stride length based on urgency and velocity
+        float velocityMagnitude = velocity.magnitude;
+        float strideLength = Mathf.Lerp(
+            baseStrideLength,
+            maxStrideLength,
+            Mathf.Clamp01(velocityMagnitude / urgentVelocityThreshold)
+        );
+        strideLength = Mathf.Max(strideLength, minStepDistance);
+
+        // Calculate where the new support center should be
+        // It should be ahead of current CoM in the direction of motion/fall
+        Vector3 desiredDirection = (comOffset + velocity * predictionTime).normalized;
+        Vector3 newSupportCenter = _centerOfMass + desiredDirection * (strideLength * 0.5f);
+        newSupportCenter.y = (_leftFootGroundTarget.y + _rightFootGroundTarget.y) / 2f;
+
+        // Calculate the stepping foot's target position
+        Vector3 lateralOffset = hipsTransform.right * (stepLeft ? -footSpacing : footSpacing);
+        
+        // Add forward bias based on velocity
+        Vector3 forwardDir = new Vector3(velocity.x, 0, velocity.z).normalized;
+        if (velocity.magnitude > idleVelocityThreshold)
+        {
+            newSupportCenter += forwardDir * (strideLength * 0.3f);
+        }
+
+        Vector3 targetPos = newSupportCenter + lateralOffset;
+
+        // Raycast to find actual ground
+        targetPos = GetGroundPoint(targetPos);
+
+        return targetPos;
+    }
+
+    #endregion
+
+    #region Stance Correction
+
+    private bool IsIdle()
+    {
+        Vector3 horizontalVelocity = new Vector3(_centerOfMassVelocity.x, 0, _centerOfMassVelocity.z);
+        bool hasLowVelocity = horizontalVelocity.magnitude < idleVelocityThreshold;
+        bool hasBeenStill = Time.time - _lastStepTime > idleCorrectionDelay;
         
         return hasLowVelocity && hasBeenStill;
     }
 
-    private void HandleIdleFootCorrection()
+    private bool ShouldCorrectStance(out bool correctLeft)
     {
-        Debug.Log("=== IDLE FOOT CORRECTION TRIGGERED ===");
-        
-        Vector3 idealLeftPos = GetIdealFootPosition(true);
-        Vector3 idealRightPos = GetIdealFootPosition(false);
+        correctLeft = false;
 
-        float leftDrift = Vector3.Distance(_leftFootGroundTarget, idealLeftPos);
-        float rightDrift = Vector3.Distance(_rightFootGroundTarget, idealRightPos);
+        Vector3 idealLeft = GetIdealFootPosition(true);
+        Vector3 idealRight = GetIdealFootPosition(false);
 
-        Debug.Log($"Left Drift: {leftDrift:F3} | Right Drift: {rightDrift:F3} | Threshold: {footCorrectionThreshold:F3}");
-        Debug.Log($"Left Target: {_leftFootGroundTarget} -> Ideal: {idealLeftPos}");
-        Debug.Log($"Right Target: {_rightFootGroundTarget} -> Ideal: {idealRightPos}");
+        float leftDrift = Vector3.Distance(_leftFootGroundTarget, idealLeft);
+        float rightDrift = Vector3.Distance(_rightFootGroundTarget, idealRight);
 
         if (leftDrift > footCorrectionThreshold || rightDrift > footCorrectionThreshold)
         {
-            if (rightDrift > leftDrift)
-            {
-                Debug.Log($">>> CORRECTING RIGHT FOOT (drift: {rightDrift:F3})");
-                _rightFootGroundTarget = idealRightPos;
-                StartCoroutine(PerformStep(rightFootIKTarget, _rightFootGroundTarget));
-            }
-            else
-            {
-                Debug.Log($">>> CORRECTING LEFT FOOT (drift: {leftDrift:F3})");
-                _leftFootGroundTarget = idealLeftPos;
-                StartCoroutine(PerformStep(leftFootIKTarget, _leftFootGroundTarget));
-            }
+            correctLeft = leftDrift > rightDrift;
+            Debug.Log($"[STANCE CORRECTION] {(correctLeft ? "LEFT" : "RIGHT")} foot drift: {(correctLeft ? leftDrift : rightDrift):F3}");
+            return true;
         }
-        else
-        {
-            Debug.Log("No correction needed - drift within threshold");
-        }
+
+        return false;
     }
 
     private Vector3 GetIdealFootPosition(bool isLeftFoot)
     {
-        Vector3 rootPos = hipsTransform.position;
         Vector3 offset = hipsTransform.right * (isLeftFoot ? -footSpacing : footSpacing);
-        Vector3 idealPos = rootPos + offset;
+        Vector3 idealPos = hipsTransform.position + offset;
+        return GetGroundPoint(idealPos);
+    }
 
-        if (Physics.Raycast(idealPos + Vector3.up * 2f, Vector3.down, out RaycastHit hit, 5f, ~ragdollLayer))
+    #endregion
+
+    #region Step Execution
+
+    private void ExecuteStep(StepInfo stepInfo)
+    {
+        // Track consecutive same-foot steps
+        if (stepInfo.stepLeft == _lastStepWasLeft)
         {
-            return hit.point;
+            _consecutiveSameFootSteps++;
         }
         else
         {
-            idealPos.y = rootPos.y - standingHeight;
-            return idealPos;
+            _consecutiveSameFootSteps = 0;
         }
+        _lastStepWasLeft = stepInfo.stepLeft;
+
+        if (stepInfo.stepLeft)
+        {
+            _leftFootGroundTarget = stepInfo.targetPosition;
+            StartCoroutine(PerformStep(leftFootIKTarget, _leftFootGroundTarget, stepInfo.urgency));
+        }
+        else
+        {
+            _rightFootGroundTarget = stepInfo.targetPosition;
+            StartCoroutine(PerformStep(rightFootIKTarget, _rightFootGroundTarget, stepInfo.urgency));
+        }
+
+        _lastStepTime = Time.time;
     }
 
-    private IEnumerator PerformStep(Transform foot, Vector3 target)
+    private void ExecuteStanceCorrection(bool correctLeft)
+    {
+        Vector3 target = GetIdealFootPosition(correctLeft);
+        
+        if (correctLeft)
+        {
+            _leftFootGroundTarget = target;
+            StartCoroutine(PerformStep(leftFootIKTarget, target, 0f));
+        }
+        else
+        {
+            _rightFootGroundTarget = target;
+            StartCoroutine(PerformStep(rightFootIKTarget, target, 0f));
+        }
+
+        _lastStepTime = Time.time;
+    }
+
+    private IEnumerator PerformStep(Transform foot, Vector3 target, float urgency)
     {
         _isStepping = true;
-        Debug.Log($"[STEP START] {foot.name} from {foot.position} to {target} (distance: {Vector3.Distance(foot.position, target):F2})");
-
+        
         Vector3 startPoint = foot.position;
+        float distance = Vector3.Distance(startPoint, target);
+        
+        // Adjust step height and duration based on urgency
+        float actualStepHeight = stepHeight * Mathf.Lerp(0.5f, 1.2f, urgency);
+        float actualDuration = stepDuration * Mathf.Lerp(1.2f, 0.8f, urgency);
+        
+        Debug.Log($"[STEP] {foot.name}: {distance:F2}m | Urgency: {urgency:F2} | Height: {actualStepHeight:F2} | Duration: {actualDuration:F2}s");
+
         Vector3 centerPoint = (startPoint + target) / 2;
-        centerPoint.y = Mathf.Max(startPoint.y, target.y) + stepHeight;
+        centerPoint.y = Mathf.Max(startPoint.y, target.y) + actualStepHeight;
 
         float timeElapsed = 0;
 
-        while (timeElapsed < stepDuration)
+        while (timeElapsed < actualDuration)
         {
             timeElapsed += Time.deltaTime;
-            float normalizedTime = timeElapsed / stepDuration;
+            float t = timeElapsed / actualDuration;
 
+            // Quadratic bezier curve for smooth step arc
             foot.position = Vector3.Lerp(
-                Vector3.Lerp(startPoint, centerPoint, normalizedTime),
-                Vector3.Lerp(centerPoint, target, normalizedTime),
-                normalizedTime
+                Vector3.Lerp(startPoint, centerPoint, t),
+                Vector3.Lerp(centerPoint, target, t),
+                t
             );
 
             yield return null;
         }
 
         foot.position = target;
-        Debug.Log($"[STEP COMPLETE] {foot.name} at {target}");
         _isStepping = false;
     }
+
+    #endregion
+
+    #region Utility
+
+    private Vector3 GetGroundPoint(Vector3 position)
+    {
+        if (Physics.Raycast(position + Vector3.up * 2f, Vector3.down, out RaycastHit hit, 5f, ~ragdollLayer))
+        {
+            return hit.point;
+        }
+        
+        position.y = hipsTransform.position.y - standingHeight;
+        return position;
+    }
+
+    private void CheckAirborne()
+    {
+        bool leftGrounded = Physics.Raycast(leftFootIKTarget.position + Vector3.up * 0.1f, Vector3.down, 0.3f, ~ragdollLayer);
+        bool rightGrounded = Physics.Raycast(rightFootIKTarget.position + Vector3.up * 0.1f, Vector3.down, 0.3f, ~ragdollLayer);
+        isAirborne = !leftGrounded && !rightGrounded;
+    }
+
+    private void AlignFootRotations()
+    {
+        leftFootIKTarget.eulerAngles = new Vector3(leftFootIKTarget.eulerAngles.x, hipsTransform.eulerAngles.y, leftFootIKTarget.eulerAngles.z);
+        rightFootIKTarget.eulerAngles = new Vector3(rightFootIKTarget.eulerAngles.x, hipsTransform.eulerAngles.y, rightFootIKTarget.eulerAngles.z);
+    }
+
+    private void UpdateBalanceTarget()
+    {
+        Vector3 avgFootPos = (_leftFootGroundTarget + _rightFootGroundTarget) / 2f;
+        balanceTargetBody.transform.position = new Vector3(
+            hipsTransform.position.x,
+            avgFootPos.y + standingHeight,
+            hipsTransform.position.z
+        );
+    }
+
+    public void UpdateStepGuidePosition()
+    {
+        Vector3 comHorizontal = _centerOfMass;
+        comHorizontal.y = hipsTransform.position.y;
+        stepGuide.position = Vector3.Lerp(stepGuide.position, comHorizontal, Time.deltaTime * 5f);
+        stepGuide.eulerAngles = new Vector3(0, hipsTransform.eulerAngles.y, 0);
+    }
+
+    #endregion
+
+    #region Physics Setup
 
     public void SetupBalanceJoint()
     {
@@ -361,40 +509,43 @@ public class ActiveRagdoll : MonoBehaviour
         balanceTargetBody.transform.rotation = Quaternion.identity;
     }
 
-    public void UpdateStepGuidePosition()
-    {
-        Vector3 comHorizontal = _centerOfMass;
-        comHorizontal.y = hipsTransform.position.y;
+    #endregion
 
-        stepGuide.position = Vector3.Lerp(stepGuide.position, comHorizontal, Time.deltaTime * 5f);
-        stepGuide.eulerAngles = new Vector3(0, hipsTransform.eulerAngles.y, 0);
-    }
+    #region Debug Visualization
 
     void OnDrawGizmos()
     {
         if (!Application.isPlaying) return;
 
+        // Center of Mass
         Gizmos.color = Color.red;
         Gizmos.DrawSphere(_centerOfMass, 0.1f);
 
+        // CoM Velocity
         Gizmos.color = Color.yellow;
         Gizmos.DrawLine(_centerOfMass, _centerOfMass + _centerOfMassVelocity * 0.5f);
 
+        // Support base
         Gizmos.color = Color.green;
         Gizmos.DrawLine(_leftFootGroundTarget, _rightFootGroundTarget);
 
+        // Stability circle
         Vector3 supportCenter = (_leftFootGroundTarget + _rightFootGroundTarget) / 2f;
-        float currentFootSpacing = Vector3.Distance(_leftFootGroundTarget, _rightFootGroundTarget);
-        float stabilityRadius = currentFootSpacing * stabilityThreshold;
-
+        float stabilityRadius = stabilityThreshold;
         Gizmos.color = new Color(0, 1, 0, 0.3f);
         DrawCircle(supportCenter, stabilityRadius, 32);
 
-        Vector3 comGroundProj = _centerOfMass;
-        comGroundProj.y = supportCenter.y;
+        // CoM ground projection
+        Vector3 comGroundProj = new Vector3(_centerOfMass.x, supportCenter.y, _centerOfMass.z);
         Gizmos.color = Color.magenta;
         Gizmos.DrawLine(_centerOfMass, comGroundProj);
         Gizmos.DrawSphere(comGroundProj, 0.08f);
+
+        // Predicted CoM
+        Vector3 predictedCom = comGroundProj + new Vector3(_centerOfMassVelocity.x, 0, _centerOfMassVelocity.z) * predictionTime;
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawSphere(predictedCom, 0.08f);
+        Gizmos.DrawLine(comGroundProj, predictedCom);
     }
 
     void DrawCircle(Vector3 center, float radius, int segments)
@@ -410,4 +561,6 @@ public class ActiveRagdoll : MonoBehaviour
             prevPoint = newPoint;
         }
     }
+
+    #endregion
 }
