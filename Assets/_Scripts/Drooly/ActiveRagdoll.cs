@@ -92,9 +92,23 @@ public class ActiveRagdoll : MonoBehaviour
 
     void Update()
     {
-        // Update CoM tracking
+        // Only handle visual/input stuff here
+        if (!_isStepping && !isAirborne)
+        {
+            // Visualization updates only
+        }
+
+        // Align foot rotations with hips
+        AlignFootRotations();
+    }
+
+    void FixedUpdate()
+    {
+        // ALL physics-related calculations must be in FixedUpdate
+
+        // Update CoM tracking with FIXED timestep
         _centerOfMass = CalculateCenterOfMass();
-        _centerOfMassVelocity = (_centerOfMass - _lastCenterOfMass) / Time.deltaTime;
+        _centerOfMassVelocity = (_centerOfMass - _lastCenterOfMass) / Time.fixedDeltaTime;
         _lastCenterOfMass = _centerOfMass;
 
         CheckAirborne();
@@ -112,9 +126,6 @@ public class ActiveRagdoll : MonoBehaviour
                 ExecuteStanceCorrection(correctLeft);
             }
         }
-
-        // Align foot rotations with hips
-        AlignFootRotations();
 
         // Update balance target
         if (!isAirborne)
