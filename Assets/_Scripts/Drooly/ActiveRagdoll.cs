@@ -174,10 +174,10 @@ public class ActiveRagdoll : MonoBehaviour
 
         // Check if we need to step
         float instability = predictedComOffset.magnitude;
-        
+
         // Also check current instability (without prediction) to avoid over-predicting
         float currentInstability = comOffset.magnitude;
-        
+
         // Only step if EITHER predicted OR current instability exceeds threshold
         // This prevents over-eager stepping from velocity prediction
         if (instability <= stabilityRadius && currentInstability <= stabilityRadius * 1.2f)
@@ -192,19 +192,19 @@ public class ActiveRagdoll : MonoBehaviour
         // ANTI-STUCK MECHANISM: If same foot has stepped 3+ times in a row, force alternate
         if (stepInfo.stepLeft == _lastStepWasLeft && _consecutiveSameFootSteps >= 2)
         {
-            Debug.LogWarning($"[ANTI-STUCK] Same foot stepped {_consecutiveSameFootSteps + 1} times! Forcing alternate to {(!stepInfo.stepLeft ? "LEFT" : "RIGHT")}");
+            // Debug.LogWarning($"[ANTI-STUCK] Same foot stepped {_consecutiveSameFootSteps + 1} times! Forcing alternate to {(!stepInfo.stepLeft ? "LEFT" : "RIGHT")}");
             stepInfo.stepLeft = !stepInfo.stepLeft;
         }
 
         // Calculate target position
         stepInfo.targetPosition = CalculateStepTarget(
-            stepInfo.stepLeft, 
-            predictedComOffset, 
+            stepInfo.stepLeft,
+            predictedComOffset,
             horizontalVelocity,
             stepInfo.urgency
         );
 
-        Debug.Log($"[STEP DECISION] Current: {currentInstability:F2} | Predicted: {instability:F2} | Threshold: {stabilityRadius:F2} | Urgency: {stepInfo.urgency:F2} | Stepping: {(stepInfo.stepLeft ? "LEFT" : "RIGHT")} | ConsecutiveSameFoot: {_consecutiveSameFootSteps}");
+        // Debug.Log($"[STEP DECISION] Current: {currentInstability:F2} | Predicted: {instability:F2} | Threshold: {stabilityRadius:F2} | Urgency: {stepInfo.urgency:F2} | Stepping: {(stepInfo.stepLeft ? "LEFT" : "RIGHT")} | ConsecutiveSameFoot: {_consecutiveSameFootSteps}");
 
         return true;
     }
@@ -214,7 +214,7 @@ public class ActiveRagdoll : MonoBehaviour
         // Calculate distances from each foot to the predicted CoM position
         Vector3 supportCenter = (_leftFootGroundTarget + _rightFootGroundTarget) / 2f;
         Vector3 predictedComPos = supportCenter + comOffset + new Vector3(velocity.x, 0, velocity.z) * predictionTime;
-        
+
         float leftDistToCom = Vector3.Distance(_leftFootGroundTarget, predictedComPos);
         float rightDistToCom = Vector3.Distance(_rightFootGroundTarget, predictedComPos);
 
@@ -225,28 +225,28 @@ public class ActiveRagdoll : MonoBehaviour
         // Check if one foot is significantly behind the other in the direction of motion
         Vector3 motionDir = velocity.magnitude > 0.1f ? velocity.normalized : comOffset.normalized;
         motionDir.y = 0;
-        
+
         float leftProgressInMotion = Vector3.Dot(_leftFootGroundTarget - supportCenter, motionDir);
         float rightProgressInMotion = Vector3.Dot(_rightFootGroundTarget - supportCenter, motionDir);
-        
+
         // If one foot is significantly behind, prioritize stepping with that foot
         float trailingDifference = Mathf.Abs(leftProgressInMotion - rightProgressInMotion);
         if (trailingDifference > baseStrideLength * 0.4f)
         {
             bool leftIsBehind = leftProgressInMotion < rightProgressInMotion;
-            Debug.Log($"[FOOT SELECTION] Trailing detected - Left progress: {leftProgressInMotion:F2} | Right progress: {rightProgressInMotion:F2} | Stepping {(leftIsBehind ? "LEFT" : "RIGHT")} (trailing foot)");
+            //  Debug.Log($"[FOOT SELECTION] Trailing detected - Left progress: {leftProgressInMotion:F2} | Right progress: {rightProgressInMotion:F2} | Stepping {(leftIsBehind ? "LEFT" : "RIGHT")} (trailing foot)");
             return leftIsBehind;
         }
 
         // Check lateral component - are we falling to one side?
         float lateralComponent = Vector3.Dot(comOffset, hipsTransform.right);
-        
+
         // If falling strongly to one side, prefer stepping with that side's foot
         if (Mathf.Abs(lateralComponent) > footSpacing * 0.5f)
         {
             bool stepLeftByLateral = lateralComponent < 0;
-            Debug.Log($"[FOOT SELECTION] Lateral fall detected: {lateralComponent:F2} | Stepping {(stepLeftByLateral ? "LEFT" : "RIGHT")}");
-            
+            // Debug.Log($"[FOOT SELECTION] Lateral fall detected: {lateralComponent:F2} | Stepping {(stepLeftByLateral ? "LEFT" : "RIGHT")}");
+
             // But don't step with a foot that just stepped recently
             float timeSinceLastStep = Time.time - _lastStepTime;
             if (timeSinceLastStep < stepDuration * 1.5f)
@@ -255,16 +255,16 @@ public class ActiveRagdoll : MonoBehaviour
                 bool lastStepWasLeft = Vector3.Distance(leftFootIKTarget.position, _leftFootGroundTarget) < 0.01f;
                 if (lastStepWasLeft == stepLeftByLateral)
                 {
-                    Debug.Log($"[FOOT SELECTION] Overriding - same foot stepped recently, alternating to {(!stepLeftByLateral ? "LEFT" : "RIGHT")}");
+                    // Debug.Log($"[FOOT SELECTION] Overriding - same foot stepped recently, alternating to {(!stepLeftByLateral ? "LEFT" : "RIGHT")}");
                     return !stepLeftByLateral;
                 }
             }
-            
+
             return stepLeftByLateral;
         }
 
         // Default: step with foot farther from predicted CoM
-        Debug.Log($"[FOOT SELECTION] Distance-based - Left dist: {leftDistToCom:F2} | Right dist: {rightDistToCom:F2} | Stepping {(stepLeftByDistance ? "LEFT" : "RIGHT")}");
+        // Debug.Log($"[FOOT SELECTION] Distance-based - Left dist: {leftDistToCom:F2} | Right dist: {rightDistToCom:F2} | Stepping {(stepLeftByDistance ? "LEFT" : "RIGHT")}");
         return stepLeftByDistance;
     }
 
@@ -287,7 +287,7 @@ public class ActiveRagdoll : MonoBehaviour
 
         // Calculate the stepping foot's target position
         Vector3 lateralOffset = hipsTransform.right * (stepLeft ? -footSpacing : footSpacing);
-        
+
         // Add forward bias based on velocity
         Vector3 forwardDir = new Vector3(velocity.x, 0, velocity.z).normalized;
         if (velocity.magnitude > idleVelocityThreshold)
@@ -296,6 +296,27 @@ public class ActiveRagdoll : MonoBehaviour
         }
 
         Vector3 targetPos = newSupportCenter + lateralOffset;
+
+        // **START MODIFICATION: Wall Check - Prevent target from going through walls**
+
+        // Use the hips' current horizontal position as the ray origin for the wall check.
+        Vector3 rayStart = hipsTransform.position;
+        rayStart.y = targetPos.y; // Match the target's height for a horizontal check
+
+        Vector3 directionToTarget = targetPos - rayStart;
+        float distanceToTarget = directionToTarget.magnitude;
+
+        // Raycast horizontally from the hips towards the proposed target, ignoring ragdoll layers
+        if (distanceToTarget > 0.01f && Physics.Raycast(rayStart, directionToTarget.normalized, out RaycastHit wallHit, distanceToTarget, ~ragdollLayer))
+        {
+            // If a non-ragdoll object is hit, clamp the target position just before the wall
+            float wallPadding = 0.05f; // Small buffer distance from the wall
+            // Clamp the target position to the hit point, pulled back by the padding
+            targetPos = rayStart + directionToTarget.normalized * (wallHit.distance - wallPadding);
+            // Debug.Log($"[STEP CLAMP] Clamped step target to {wallHit.distance:F2}m from hips due to obstacle."); // Uncomment for debug
+        }
+
+        // **END MODIFICATION**
 
         // Raycast to find actual ground
         targetPos = GetGroundPoint(targetPos);
@@ -312,7 +333,7 @@ public class ActiveRagdoll : MonoBehaviour
         Vector3 horizontalVelocity = new Vector3(_centerOfMassVelocity.x, 0, _centerOfMassVelocity.z);
         bool hasLowVelocity = horizontalVelocity.magnitude < idleVelocityThreshold;
         bool hasBeenStill = Time.time - _lastStepTime > idleCorrectionDelay;
-        
+
         return hasLowVelocity && hasBeenStill;
     }
 
@@ -329,7 +350,7 @@ public class ActiveRagdoll : MonoBehaviour
         if (leftDrift > footCorrectionThreshold || rightDrift > footCorrectionThreshold)
         {
             correctLeft = leftDrift > rightDrift;
-            Debug.Log($"[STANCE CORRECTION] {(correctLeft ? "LEFT" : "RIGHT")} foot drift: {(correctLeft ? leftDrift : rightDrift):F3}");
+            //  Debug.Log($"[STANCE CORRECTION] {(correctLeft ? "LEFT" : "RIGHT")} foot drift: {(correctLeft ? leftDrift : rightDrift):F3}");
             return true;
         }
 
@@ -377,7 +398,7 @@ public class ActiveRagdoll : MonoBehaviour
     private void ExecuteStanceCorrection(bool correctLeft)
     {
         Vector3 target = GetIdealFootPosition(correctLeft);
-        
+
         if (correctLeft)
         {
             _leftFootGroundTarget = target;
@@ -395,15 +416,15 @@ public class ActiveRagdoll : MonoBehaviour
     private IEnumerator PerformStep(Transform foot, Vector3 target, float urgency)
     {
         _isStepping = true;
-        
+
         Vector3 startPoint = foot.position;
         float distance = Vector3.Distance(startPoint, target);
-        
+
         // Adjust step height and duration based on urgency
         float actualStepHeight = stepHeight * Mathf.Lerp(0.5f, 1.2f, urgency);
         float actualDuration = stepDuration * Mathf.Lerp(1.2f, 0.8f, urgency);
-        
-        Debug.Log($"[STEP] {foot.name}: {distance:F2}m | Urgency: {urgency:F2} | Height: {actualStepHeight:F2} | Duration: {actualDuration:F2}s");
+
+        // Debug.Log($"[STEP] {foot.name}: {distance:F2}m | Urgency: {urgency:F2} | Height: {actualStepHeight:F2} | Duration: {actualDuration:F2}s");
 
         Vector3 centerPoint = (startPoint + target) / 2;
         centerPoint.y = Mathf.Max(startPoint.y, target.y) + actualStepHeight;
@@ -439,7 +460,7 @@ public class ActiveRagdoll : MonoBehaviour
         {
             return hit.point;
         }
-        
+
         position.y = hipsTransform.position.y - standingHeight;
         return position;
     }
