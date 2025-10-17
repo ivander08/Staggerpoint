@@ -2304,9 +2304,11 @@ MonoBehaviour:
   rightHandRigidbody: {fileID: 797850961}
   rightShoulderAnchor: {fileID: 1283932523}
   rightArmRoot: {fileID: 1741255113}
+  rightForearmJoint: {fileID: 746998840}
   leftHandRigidbody: {fileID: 2001614738}
   leftShoulderAnchor: {fileID: 1570364188}
   leftArmRoot: {fileID: 1741255112}
+  leftForearmJoint: {fileID: 2114494391}
   rightHandIKTarget: {fileID: 1221933083}
   leftHandIKTarget: {fileID: 1266774499}
   rightFingerJoint: {fileID: 1912581906}
@@ -2333,6 +2335,11 @@ MonoBehaviour:
   maxVerticalSwingAngle: 80
   showPunchPaths: 1
   pathResolution: 32
+  enableWeaponTwist: 1
+  weaponTwistAngleOutward: 150
+  weaponTwistAngleInward: -50
+  twistActivateThreshold: 0.8
+  twistReleaseThreshold: -0.6
 --- !u!114 &282379894
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4740,7 +4747,7 @@ ConfigurableJoint:
     bounciness: 0
     contactDistance: 0
   m_AngularZLimit:
-    limit: 75
+    limit: 177
     bounciness: 0
     contactDistance: 0
   m_TargetPosition: {x: 0, y: 0, z: 0}
@@ -17258,7 +17265,7 @@ ConfigurableJoint:
     bounciness: 0
     contactDistance: 0
   m_AngularZLimit:
-    limit: 75
+    limit: 177
     bounciness: 0
     contactDistance: 0
   m_TargetPosition: {x: 0, y: 0, z: 0}

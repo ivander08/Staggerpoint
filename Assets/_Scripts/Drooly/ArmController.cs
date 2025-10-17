@@ -13,12 +13,14 @@ public class ArmController : MonoBehaviour
     public Rigidbody rightHandRigidbody;
     public Transform rightShoulderAnchor;
     public Transform rightArmRoot;
+    public ConfigurableJoint rightForearmJoint;
 
     // --- LEFT ARM ---
     [Header("Left Arm Rig")]
     public Rigidbody leftHandRigidbody;
     public Transform leftShoulderAnchor;
     public Transform leftArmRoot;
+    public ConfigurableJoint leftForearmJoint;
 
     [Header("IK Targets")]
     public Transform rightHandIKTarget;
@@ -94,6 +96,30 @@ public class ArmController : MonoBehaviour
     private Quaternion _rightFingerStartRotation;
     private Quaternion _leftFingerStartRotation;
 
+    private Quaternion _originalRightForearmRotation;
+    private Quaternion _originalLeftForearmRotation;
+
+    [Header("Weapon Hand Rotation Control")]
+    [Tooltip("Should this feature be enabled?")]
+    public bool enableWeaponTwist = true;
+
+    [Tooltip("The twist angle applied when the arm swings AWAY from the body's center (e.g., -170).")]
+    public float weaponTwistAngleOutward = -170f;
+
+    [Tooltip("The twist angle applied when the arm swings ACROSS the body's center (e.g., 170).")]
+    public float weaponTwistAngleInward = 170f;
+
+    [Tooltip("Progress point (e.g., 0.7) to START twisting when swinging away from the center.")]
+    [Range(0f, 1f)]
+    public float twistActivateThreshold = 0.7f;
+
+    [Tooltip("Progress point (e.g., -0.5) to STOP twisting when the arm crosses the body's center.")]
+    [Range(-1f, 1f)]
+    public float twistReleaseThreshold = -0.5f;
+
+    private int _rightArmTwistState = 0; // 0 = neutral, 1 = twisted outward, -1 = twisted inward
+    private int _leftArmTwistState = 0;
+
     void Awake()
     {
         if (cameraController != null) _cameraTransform = cameraController.transform;
@@ -113,6 +139,11 @@ public class ArmController : MonoBehaviour
             _rightFingerStartRotation = rightFingerJoint.transform.localRotation;
         if (leftFingerJoint != null)
             _leftFingerStartRotation = leftFingerJoint.transform.localRotation;
+
+        if (rightForearmJoint != null)
+            _originalRightForearmRotation = rightForearmJoint.targetRotation;
+        if (leftForearmJoint != null)
+            _originalLeftForearmRotation = leftForearmJoint.targetRotation;
     }
 
     private void InitializeArm(Transform armRoot, List<ConfigurableJoint> joints, List<JointDrive> drives)
@@ -192,14 +223,16 @@ public class ArmController : MonoBehaviour
         if (isRightArm)
         {
             _isRightArmSwinging = true;
-            RelaxArm(_rightArmJoints);
+            // RelaxArm(_rightArmJoints);
+            _rightArmTwistState = 0;
             rightHandIKTarget.position = rightHandRigidbody.position;
             InitializeSwingAngles(rightHandRigidbody, rightShoulderAnchor, ref _currentRightSwingYaw, ref _currentRightSwingPitch);
         }
         else
         {
             _isLeftArmSwinging = true;
-            RelaxArm(_leftArmJoints);
+            // RelaxArm(_leftArmJoints);
+            _leftArmTwistState = 0;
             leftHandIKTarget.position = leftHandRigidbody.position;
             InitializeSwingAngles(leftHandRigidbody, leftShoulderAnchor, ref _currentLeftSwingYaw, ref _currentLeftSwingPitch);
         }
@@ -210,12 +243,24 @@ public class ArmController : MonoBehaviour
         if (isRightArm)
         {
             _isRightArmSwinging = false;
+            _rightArmTwistState = 0; // <-- ADD THIS
             ReTenseArm(_rightArmJoints, _originalRightArmDrives);
+
+            if (rightForearmJoint != null) // This line is still important
+            {
+                rightForearmJoint.targetRotation = _originalRightForearmRotation;
+            }
         }
         else
         {
             _isLeftArmSwinging = false;
+            _leftArmTwistState = 0; // <-- ADD THIS
             ReTenseArm(_leftArmJoints, _originalLeftArmDrives);
+
+            if (leftForearmJoint != null) // This line is still important
+            {
+                leftForearmJoint.targetRotation = _originalLeftForearmRotation;
+            }
         }
 
         if (!_isRightArmSwinging && !_isLeftArmSwinging)
@@ -241,15 +286,15 @@ public class ArmController : MonoBehaviour
         activeRagdoll.SetupBalanceJoint();
     }
 
-    private void RelaxArm(List<ConfigurableJoint> joints)
-    {
-        foreach (var joint in joints)
-        {
-            var relaxedDrive = new JointDrive { positionSpring = 0, positionDamper = 10, maximumForce = float.MaxValue };
-            joint.angularXDrive = relaxedDrive;
-            joint.angularYZDrive = relaxedDrive;
-        }
-    }
+    // private void RelaxArm(List<ConfigurableJoint> joints)
+    // {
+    //     foreach (var joint in joints)
+    //     {
+    //         var relaxedDrive = new JointDrive { positionSpring = 0, positionDamper = 10, maximumForce = float.MaxValue };
+    //         joint.angularXDrive = relaxedDrive;
+    //         joint.angularYZDrive = relaxedDrive;
+    //     }
+    // }
 
 
     private void ReTenseArm(List<ConfigurableJoint> joints, List<JointDrive> originalDrives)
@@ -282,27 +327,92 @@ public class ArmController : MonoBehaviour
         yaw += mouseDelta.x * swingSensitivity * 0.1f;
         pitch += mouseDelta.y * swingSensitivity * 0.1f;
 
-        if (isLeftArm)
-        {
-            yaw = Mathf.Clamp(yaw, -swingAngleOutward, swingAngleAcrossBody);
-        }
-        else
-        {
-            yaw = Mathf.Clamp(yaw, -swingAngleAcrossBody, swingAngleOutward);
-        }
+        // Determine the angle range for the current arm
+        float minYaw = isLeftArm ? -swingAngleOutward : -swingAngleAcrossBody;
+        float maxYaw = isLeftArm ? swingAngleAcrossBody : swingAngleOutward;
+
+        yaw = Mathf.Clamp(yaw, minYaw, maxYaw);
         pitch = Mathf.Clamp(pitch, -maxVerticalSwingAngle, maxVerticalSwingAngle);
 
-        // Calculate the radius at this yaw angle
+        // --- POSITION LOGIC (remains the same) ---
         float radius = CalculateRadiusAtAngle(yaw, isLeftArm);
-
-        // Calculate direction based on yaw and pitch
         Vector3 charUp = hips.up;
         Vector3 newHorizontalDir = Quaternion.AngleAxis(yaw, charUp) * hips.forward;
         Vector3 pitchRotationAxis = Vector3.Cross(newHorizontalDir, charUp).normalized;
         Vector3 newArmVector = Quaternion.AngleAxis(pitch, pitchRotationAxis) * newHorizontalDir;
-
-        // Apply the calculated radius
         handIKTarget.position = shoulderAnchor.position + newArmVector.normalized * radius;
+
+        // --- START: CORRECTED STATEFUL WEAPON TWIST LOGIC ---
+
+        ConfigurableJoint targetJoint = isLeftArm ? leftForearmJoint : rightForearmJoint;
+        Quaternion originalRotation = isLeftArm ? _originalLeftForearmRotation : _originalRightForearmRotation;
+        bool isRightArm = !isLeftArm; // A clear variable to avoid confusion
+
+        // 1. If feature is disabled or we have no weapon, reset the joint and do nothing else.
+        // THE FIX IS HERE: We must check the correct arm for the weapon.
+        if (!enableWeaponTwist || !IsArmHoldingWeapon(isRightArm))
+        {
+            if (targetJoint != null) targetJoint.targetRotation = originalRotation;
+            if (isLeftArm) _leftArmTwistState = 0;
+            else _rightArmTwistState = 0;
+        }
+        else
+        {
+            // We are holding a weapon, so proceed.
+            // 2. Calculate swing progress from -1 (inward) to 1 (outward)
+            float swingProgress = (Mathf.InverseLerp(minYaw, maxYaw, yaw) - 0.5f) * 2f;
+
+            // Use the new isRightArm variable for clarity
+            float activate = isRightArm ? twistActivateThreshold : -twistActivateThreshold;
+            float release = isRightArm ? twistReleaseThreshold : -twistReleaseThreshold;
+
+            // Get and update the current twist state
+            int currentTwistState = isLeftArm ? _leftArmTwistState : _rightArmTwistState;
+
+            // 3. The State Machine
+            if (currentTwistState == 0) // STATE: Currently Neutral
+            {
+                if (isRightArm ? (swingProgress > activate) : (swingProgress < activate))
+                    currentTwistState = 1; // Transition to Outward Twist
+                else if (isRightArm ? (swingProgress < -activate) : (swingProgress > -activate))
+                    currentTwistState = -1; // Transition to Inward Twist
+            }
+            else if (currentTwistState == 1) // STATE: Twisted Outward
+            {
+                if (isRightArm ? (swingProgress < release) : (swingProgress > release))
+                    currentTwistState = 0; // Transition to Neutral
+            }
+            else if (currentTwistState == -1) // STATE: Twisted Inward
+            {
+                if (isRightArm ? (swingProgress > -release) : (swingProgress < -release))
+                    currentTwistState = 0; // Transition to Neutral
+            }
+
+            // Store the new state
+            if (isLeftArm) _leftArmTwistState = currentTwistState;
+            else _rightArmTwistState = currentTwistState;
+
+            // 4. Apply Rotation Based on Final State
+            float targetTwistAngle = 0f;
+            if (currentTwistState == 1)
+            {
+                targetTwistAngle = isRightArm ? weaponTwistAngleOutward : weaponTwistAngleInward;
+            }
+            else if (currentTwistState == -1)
+            {
+                targetTwistAngle = isRightArm ? weaponTwistAngleInward : weaponTwistAngleOutward;
+            }
+
+            if (targetJoint != null)
+            {
+                Quaternion twist = Quaternion.Euler(0, 0, targetTwistAngle);
+                targetJoint.targetRotation = originalRotation * twist;
+            }
+        }
+
+        // --- END: CORRECTED STATEFUL WEAPON TWIST LOGIC ---
+
+        // Keep the IK target's rotation simple, pointing forward relative to the camera
         handIKTarget.rotation = Quaternion.LookRotation(_cameraTransform.forward, charUp);
     }
 
