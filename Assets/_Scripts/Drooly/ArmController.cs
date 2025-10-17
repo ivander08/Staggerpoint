@@ -31,7 +31,7 @@ public class ArmController : MonoBehaviour
     [Header("Physics Control")]
     public float followForce = 50000f;
     public float rotateTorque = 5000f;
-    
+
     [Header("Finger Control")]
     [Tooltip("Target rotation for right hand closed fist (in degrees)")]
     public float rightFistCurlAngle = -120f;
@@ -49,7 +49,7 @@ public class ArmController : MonoBehaviour
     public float hookRadiusMiddle = 0.7f;
     [Tooltip("Distance from shoulder at ending side (left for right arm, right for left arm)")]
     public float hookRadiusEnd = 0.5f;
-    
+
     [Header("Jab Punch (Extended Arm)")]
     [Tooltip("Distance from shoulder at starting side")]
     public float jabRadiusStart = 0.9f;
@@ -57,6 +57,14 @@ public class ArmController : MonoBehaviour
     public float jabRadiusMiddle = 1.2f;
     [Tooltip("Distance from shoulder at ending side")]
     public float jabRadiusEnd = 1.0f;
+
+    [Header("Weapon Hold Mode")]
+    public float weaponRadiusStart = 0.6f;
+    public float weaponRadiusMiddle = 0.8f;
+    public float weaponRadiusEnd = 0.6f;
+
+    [Header("Weapon References")]
+    public WeaponPickupManager weaponPickupManager;
 
     [Header("Swing Control")]
     public float swingSensitivity = 1.5f;
@@ -90,13 +98,13 @@ public class ArmController : MonoBehaviour
     {
         if (cameraController != null) _cameraTransform = cameraController.transform;
         else { Debug.LogError("CameraController not assigned!"); enabled = false; return; }
-        
+
         rightHandRigidbody.maxAngularVelocity = 50f;
         leftHandRigidbody.maxAngularVelocity = 50f;
 
         InitializeArm(rightArmRoot, _rightArmJoints, _originalRightArmDrives);
         InitializeArm(leftArmRoot, _leftArmJoints, _originalLeftArmDrives);
-        
+
         _originalBalanceForce = activeRagdoll.balanceForce;
         _originalBalanceDamper = activeRagdoll.balanceDamping;
 
@@ -112,7 +120,7 @@ public class ArmController : MonoBehaviour
         if (armRoot != null)
         {
             joints.AddRange(armRoot.GetComponentsInChildren<ConfigurableJoint>());
-            foreach(var joint in joints)
+            foreach (var joint in joints)
             {
                 drives.Add(joint.angularXDrive);
             }
@@ -124,10 +132,13 @@ public class ArmController : MonoBehaviour
         HandleInput();
         if (_isRightArmSwinging) UpdateIKTargetPosition(rightHandIKTarget, rightShoulderAnchor, ref _currentRightSwingYaw, ref _currentRightSwingPitch, false);
         if (_isLeftArmSwinging) UpdateIKTargetPosition(leftHandIKTarget, leftShoulderAnchor, ref _currentLeftSwingYaw, ref _currentLeftSwingPitch, true);
-        
-        // Update finger curls with separate angles for each hand
-        UpdateFingerCurl(rightFingerJoint, _isRightArmSwinging, _rightFingerStartRotation, rightFistCurlAngle);
-        UpdateFingerCurl(leftFingerJoint, _isLeftArmSwinging, _leftFingerStartRotation, leftFistCurlAngle);
+
+        // Update finger curls - grip when holding weapon OR when swinging
+        bool rightShouldCurl = _isRightArmSwinging || IsArmHoldingWeapon(true);
+        bool leftShouldCurl = _isLeftArmSwinging || IsArmHoldingWeapon(false);
+
+        UpdateFingerCurl(rightFingerJoint, rightShouldCurl, _rightFingerStartRotation, rightFistCurlAngle);
+        UpdateFingerCurl(leftFingerJoint, leftShouldCurl, _leftFingerStartRotation, leftFistCurlAngle);
     }
 
     void FixedUpdate()
@@ -140,15 +151,34 @@ public class ArmController : MonoBehaviour
 
     private void HandleInput()
     {
-        _isJabMode = Keyboard.current.leftAltKey.isPressed || Keyboard.current.rightAltKey.isPressed;
+        // Only allow jab mode if NOT holding a weapon on either arm
+        bool holdingWeapon = IsArmHoldingWeapon(true) || IsArmHoldingWeapon(false);
+        if (!holdingWeapon)
+        {
+            _isJabMode = Keyboard.current.leftAltKey.isPressed || Keyboard.current.rightAltKey.isPressed;
+        }
+        else
+        {
+            _isJabMode = false; // Force hook mode when holding weapon
+        }
 
         bool rightMousePressed = Mouse.current.rightButton.isPressed;
         if (rightMousePressed && !_isRightArmSwinging) StartSwing(true);
         else if (!rightMousePressed && _isRightArmSwinging) EndSwing(true);
-        
+
         bool leftMousePressed = Mouse.current.leftButton.isPressed;
         if (leftMousePressed && !_isLeftArmSwinging) StartSwing(false);
         else if (!leftMousePressed && _isLeftArmSwinging) EndSwing(false);
+    }
+
+    private bool IsArmHoldingWeapon(bool isRightArm)
+    {
+        if (weaponPickupManager == null) return false;
+
+        if (isRightArm)
+            return weaponPickupManager.equippedWeaponRight != null;
+        else
+            return weaponPickupManager.equippedWeaponLeft != null;
     }
 
     private void StartSwing(bool isRightArm)
@@ -213,7 +243,7 @@ public class ArmController : MonoBehaviour
 
     private void RelaxArm(List<ConfigurableJoint> joints)
     {
-        foreach(var joint in joints)
+        foreach (var joint in joints)
         {
             var relaxedDrive = new JointDrive { positionSpring = 0, positionDamper = 10, maximumForce = float.MaxValue };
             joint.angularXDrive = relaxedDrive;
@@ -221,9 +251,10 @@ public class ArmController : MonoBehaviour
         }
     }
 
+
     private void ReTenseArm(List<ConfigurableJoint> joints, List<JointDrive> originalDrives)
     {
-        for(int i = 0; i < joints.Count; i++)
+        for (int i = 0; i < joints.Count; i++)
         {
             joints[i].angularXDrive = originalDrives[i];
             joints[i].angularYZDrive = originalDrives[i];
@@ -238,7 +269,7 @@ public class ArmController : MonoBehaviour
         Vector3 charUp = hips.up;
         Vector3 currentArmVector = handRB.position - shoulderAnchor.position;
         Vector3 armHorizontal = Vector3.ProjectOnPlane(currentArmVector, charUp);
-        
+
         yaw = Vector3.SignedAngle(Vector3.ProjectOnPlane(hips.forward, charUp), armHorizontal, charUp);
         pitch = Vector3.Angle(armHorizontal, currentArmVector) * Mathf.Sign(Vector3.Dot(currentArmVector, charUp));
     }
@@ -277,10 +308,26 @@ public class ArmController : MonoBehaviour
 
     private float CalculateRadiusAtAngle(float yaw, bool isLeftArm)
     {
+        // Check if this arm is holding a weapon
+        bool holdingWeapon = IsArmHoldingWeapon(!isLeftArm); // Note: isLeftArm in param is opposite of which arm
+
         // Get punch style parameters
-        float radiusStart = _isJabMode ? jabRadiusStart : hookRadiusStart;
-        float radiusMiddle = _isJabMode ? jabRadiusMiddle : hookRadiusMiddle;
-        float radiusEnd = _isJabMode ? jabRadiusEnd : hookRadiusEnd;
+        float radiusStart, radiusMiddle, radiusEnd;
+
+        if (holdingWeapon)
+        {
+            // Use weapon punch radii
+            radiusStart = weaponRadiusStart;
+            radiusMiddle = weaponRadiusMiddle;
+            radiusEnd = weaponRadiusEnd;
+        }
+        else
+        {
+            // Use hook/jab radii
+            radiusStart = _isJabMode ? jabRadiusStart : hookRadiusStart;
+            radiusMiddle = _isJabMode ? jabRadiusMiddle : hookRadiusMiddle;
+            radiusEnd = _isJabMode ? jabRadiusEnd : hookRadiusEnd;
+        }
 
         // Determine angle range
         float minYaw = isLeftArm ? -swingAngleOutward : -swingAngleAcrossBody;
@@ -290,17 +337,14 @@ public class ArmController : MonoBehaviour
         float normalizedYaw = Mathf.InverseLerp(minYaw, maxYaw, yaw);
 
         // Interpolate radius using smooth curve
-        // We split the range into two halves: start->middle and middle->end
         float radius;
         if (normalizedYaw < 0.5f)
         {
-            // First half: interpolate from start to middle
             float t = normalizedYaw * 2f;
             radius = Mathf.Lerp(radiusStart, radiusMiddle, t);
         }
         else
         {
-            // Second half: interpolate from middle to end
             float t = (normalizedYaw - 0.5f) * 2f;
             radius = Mathf.Lerp(radiusMiddle, radiusEnd, t);
         }
@@ -316,7 +360,7 @@ public class ArmController : MonoBehaviour
         Quaternion rotationDifference = handIKTarget.rotation * Quaternion.Inverse(handRB.rotation);
         rotationDifference.ToAngleAxis(out float angleInDegrees, out Vector3 rotationAxis);
         if (angleInDegrees > 180f) angleInDegrees -= 360f;
-        
+
         Vector3 torque = rotationAxis.normalized * (angleInDegrees * Mathf.Deg2Rad * rotateTorque);
         handRB.AddTorque(torque * Time.fixedDeltaTime, ForceMode.Force);
     }
@@ -403,7 +447,7 @@ public class ArmController : MonoBehaviour
             pathColor = isJab ? new Color(0.3f, 0.9f, 0.9f, 0.5f) : new Color(0.3f, 0.5f, 1f, 0.5f);
         else
             pathColor = isJab ? new Color(0.9f, 0.9f, 0.3f, 0.5f) : new Color(1f, 0.5f, 0.3f, 0.5f);
-        
+
         Gizmos.color = pathColor;
 
         // Calculate angle range
@@ -418,7 +462,7 @@ public class ArmController : MonoBehaviour
         {
             float t = (float)i / pathResolution;
             float yaw = Mathf.Lerp(minYaw, maxYaw, t);
-            
+
             // Calculate radius at this angle
             float radius;
             if (t < 0.5f)
@@ -440,7 +484,7 @@ public class ArmController : MonoBehaviour
             {
                 Gizmos.DrawLine(previousPoint, point);
             }
-            
+
             previousPoint = point;
             firstPoint = false;
 
@@ -476,12 +520,12 @@ public class ArmController : MonoBehaviour
         Gizmos.DrawWireSphere(shoulderAnchor.position, 0.03f);
 
         // Draw label
-        #if UNITY_EDITOR
+#if UNITY_EDITOR
         Vector3 labelPos = shoulderAnchor.position + charUp * (isJab ? 0.4f : 0.25f);
         UnityEditor.Handles.Label(
             labelPos,
             $"{(isLeftArm ? "L" : "R")} {(isJab ? "Jab" : "Hook")}\nS:{radiusStart:F2} M:{radiusMiddle:F2} E:{radiusEnd:F2}"
         );
-        #endif
+#endif
     }
 }
