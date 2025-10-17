@@ -103,12 +103,6 @@ public class ArmController : MonoBehaviour
     [Tooltip("Should this feature be enabled?")]
     public bool enableWeaponTwist = true;
 
-    [Tooltip("The twist angle applied when the arm swings AWAY from the body's center (e.g., -170).")]
-    public float weaponTwistAngleOutward = -170f;
-
-    [Tooltip("The twist angle applied when the arm swings ACROSS the body's center (e.g., 170).")]
-    public float weaponTwistAngleInward = 170f;
-
     [Tooltip("Progress point (e.g., 0.7) to START twisting when swinging away from the center.")]
     [Range(0f, 1f)]
     public float twistActivateThreshold = 0.7f;
@@ -116,6 +110,20 @@ public class ArmController : MonoBehaviour
     [Tooltip("Progress point (e.g., -0.5) to STOP twisting when the arm crosses the body's center.")]
     [Range(-1f, 1f)]
     public float twistReleaseThreshold = -0.5f;
+
+    [Header("Right Arm Weapon Twist")]
+    [Tooltip("The twist angle applied when the right arm swings AWAY from the body's center.")]
+    public float rightWeaponTwistAngleOutward = 150f;
+
+    [Tooltip("The twist angle applied when the right arm swings ACROSS the body's center.")]
+    public float rightWeaponTwistAngleInward = -50f;
+
+    [Header("Left Arm Weapon Twist")]
+    [Tooltip("The twist angle applied when the left arm swings AWAY from the body's center.")]
+    public float leftWeaponTwistAngleOutward = 50f;
+
+    [Tooltip("The twist angle applied when the left arm swings ACROSS the body's center.")]
+    public float leftWeaponTwistAngleInward = -150f;
 
     private int _rightArmTwistState = 0; // 0 = neutral, 1 = twisted outward, -1 = twisted inward
     private int _leftArmTwistState = 0;
@@ -243,10 +251,10 @@ public class ArmController : MonoBehaviour
         if (isRightArm)
         {
             _isRightArmSwinging = false;
-            _rightArmTwistState = 0; // <-- ADD THIS
+            _rightArmTwistState = 0;
             ReTenseArm(_rightArmJoints, _originalRightArmDrives);
 
-            if (rightForearmJoint != null) // This line is still important
+            if (rightForearmJoint != null)
             {
                 rightForearmJoint.targetRotation = _originalRightForearmRotation;
             }
@@ -254,10 +262,10 @@ public class ArmController : MonoBehaviour
         else
         {
             _isLeftArmSwinging = false;
-            _leftArmTwistState = 0; // <-- ADD THIS
+            _leftArmTwistState = 0;
             ReTenseArm(_leftArmJoints, _originalLeftArmDrives);
 
-            if (leftForearmJoint != null) // This line is still important
+            if (leftForearmJoint != null)
             {
                 leftForearmJoint.targetRotation = _originalLeftForearmRotation;
             }
@@ -285,17 +293,6 @@ public class ArmController : MonoBehaviour
         activeRagdoll.balanceDamping = (int)_originalBalanceDamper;
         activeRagdoll.SetupBalanceJoint();
     }
-
-    // private void RelaxArm(List<ConfigurableJoint> joints)
-    // {
-    //     foreach (var joint in joints)
-    //     {
-    //         var relaxedDrive = new JointDrive { positionSpring = 0, positionDamper = 10, maximumForce = float.MaxValue };
-    //         joint.angularXDrive = relaxedDrive;
-    //         joint.angularYZDrive = relaxedDrive;
-    //     }
-    // }
-
 
     private void ReTenseArm(List<ConfigurableJoint> joints, List<JointDrive> originalDrives)
     {
@@ -349,7 +346,6 @@ public class ArmController : MonoBehaviour
         bool isRightArm = !isLeftArm; // A clear variable to avoid confusion
 
         // 1. If feature is disabled or we have no weapon, reset the joint and do nothing else.
-        // THE FIX IS HERE: We must check the correct arm for the weapon.
         if (!enableWeaponTwist || !IsArmHoldingWeapon(isRightArm))
         {
             if (targetJoint != null) targetJoint.targetRotation = originalRotation;
@@ -396,11 +392,11 @@ public class ArmController : MonoBehaviour
             float targetTwistAngle = 0f;
             if (currentTwistState == 1)
             {
-                targetTwistAngle = isRightArm ? weaponTwistAngleOutward : weaponTwistAngleInward;
+                targetTwistAngle = isRightArm ? rightWeaponTwistAngleOutward : leftWeaponTwistAngleOutward;
             }
             else if (currentTwistState == -1)
             {
-                targetTwistAngle = isRightArm ? weaponTwistAngleInward : weaponTwistAngleOutward;
+                targetTwistAngle = isRightArm ? rightWeaponTwistAngleInward : leftWeaponTwistAngleInward;
             }
 
             if (targetJoint != null)
