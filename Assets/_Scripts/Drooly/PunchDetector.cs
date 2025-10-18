@@ -3,34 +3,39 @@ using UnityEngine;
 public class PunchDetector : MonoBehaviour
 {
     [Header("Detection Settings")]
-    [Tooltip("Minimum velocity to register as a punch (m/s)")]
-    public float minimumPunchVelocity = 1.0f;
+    [Tooltip("Which physics layers should trigger a hit detection (e.g., Weapons, Hands)")]
+    public LayerMask hittableLayers; // This is the new field
+    [Tooltip("Minimum velocity of the hitting object to register as a valid hit (m/s)")]
+    public float minimumHitVelocity = 1.0f;
 
     [Header("Debug")]
     public bool showDebugInfo = true;
 
     private void OnCollisionEnter(Collision collision)
     {
-        // Check if it's a hand rigidbody that hit us
+        // Check if the object that hit us has a Rigidbody
         Rigidbody hitRigidbody = collision.rigidbody;
-        
         if (hitRigidbody == null) return;
 
-        // Check if the colliding object is a hand
-        string objectName = hitRigidbody.gameObject.name.ToLower();
-        bool isHand = objectName.Contains("hand");
-
-        if (!isHand) return;
+        // --- MODIFICATION START ---
+        // Check if the colliding object's layer is in our hittable layers mask.
+        // This is more flexible than checking the object's name.
+        if ((hittableLayers.value & (1 << collision.gameObject.layer)) == 0)
+        {
+            // If the layer doesn't match the mask, ignore this collision.
+            return;
+        }
+        // --- MODIFICATION END ---
 
         // Get the velocity at impact
         Vector3 impactVelocity = hitRigidbody.velocity;
         float speed = impactVelocity.magnitude;
 
         // Only register if velocity is high enough
-        if (speed < minimumPunchVelocity) return;
+        if (speed < minimumHitVelocity) return;
 
-        // Determine which hand
-        string handName = objectName.Contains("r") ? "RIGHT" : "LEFT";
+        // Get the name of the object that hit us for the debug log
+        string hittingObjectName = hitRigidbody.gameObject.name;
 
         // Get contact point info
         ContactPoint contact = collision.GetContact(0);
@@ -43,24 +48,22 @@ public class PunchDetector : MonoBehaviour
         // Print detailed info
         if (showDebugInfo)
         {
-            Debug.Log($"<color=yellow>=== PUNCH DETECTED ===</color>");
-            Debug.Log($"<color=cyan>Hand:</color> {handName}");
+            Debug.Log($"<color=yellow>=== HIT DETECTED ON {gameObject.name} ===</color>");
+            Debug.Log($"<color=cyan>Hitting Object:</color> {hittingObjectName}");
+            // Debug.Log($"<color=cyan>Layer:</color> {LayerMask.LayerToName(collision.gameObject.layer)}");
             Debug.Log($"<color=cyan>Speed:</color> {speed:F2} m/s");
-            // Debug.Log($"<color=cyan>Velocity:</color> {impactVelocity}");
-            // Debug.Log($"<color=cyan>Impact Force:</color> {impactForce:F2} N");
-            // Debug.Log($"<color=cyan>Impact Point:</color> {impactPoint}");
-            // Debug.Log($"<color=cyan>Impact Normal:</color> {impactNormal}");
-            Debug.Log($"<color=yellow>=====================</color>");
+            // Debug.Log($"<color=cyan>Impact Force (Approx):</color> {impactForce:F2} N");
         }
 
-        // Call this for additional custom behavior
-        OnPunchDetected(handName, speed, impactVelocity, impactForce, impactPoint);
+        // Call this for additional custom behavior, now passing the entire GameObject
+        OnHitDetected(hitRigidbody.gameObject, speed, impactVelocity, impactForce, impactPoint);
     }
 
-    // Override this method in derived classes for custom punch behavior
-    protected virtual void OnPunchDetected(string handName, float speed, Vector3 velocity, float force, Vector3 point)
+    // Renamed and updated to be more generic. Override this in other scripts for custom behavior.
+    protected virtual void OnHitDetected(GameObject hittingObject, float speed, Vector3 velocity, float force, Vector3 point)
     {
-        // Custom behavior can be added here or in derived classes
+        // For example, you could add logic here to apply damage based on the object's speed or mass.
+        // if(hittingObject.CompareTag("Sword")) { TakeDamage(force * 1.5f); }
     }
 
     // Visualize detection in scene view
