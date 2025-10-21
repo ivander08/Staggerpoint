@@ -91,6 +91,9 @@ public class Weapon : MonoBehaviour
         joint.angularXMotion = ConfigurableJointMotion.Locked;
         joint.angularYMotion = ConfigurableJointMotion.Locked;
         joint.angularZMotion = ConfigurableJointMotion.Locked;
+        joint.projectionMode = JointProjectionMode.PositionAndRotation;
+        joint.projectionAngle = 3.0f;
+        joint.projectionDistance = 0.01f;
     }
 
     /// <summary>
