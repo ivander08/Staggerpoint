@@ -1,76 +1,134 @@
 using UnityEngine;
 
-// Attach this to each weapon
 public class Weapon : MonoBehaviour
 {
-    [SerializeField] private Transform weaponGripPoint;
-    private bool isEquipped = false;
-    private FixedJoint fixedJoint;
-    private Rigidbody rb;
+    [Header("Weapon Type")]
+    public bool isTwoHanded = false;
 
-    private void Start()
+    [Header("Grip Points")]
+    public Transform rightGripPoint;
+    public Transform leftGripPoint;
+
+    // --- We will now store ConfigurableJoints instead of FixedJoints ---
+    private ConfigurableJoint rightHandJoint;
+    private ConfigurableJoint leftHandJoint;
+
+    // --- Public properties remain the same ---
+    public bool IsEquipped => rightHandJoint != null || leftHandJoint != null;
+    public bool IsHeldByRightHand => rightHandJoint != null;
+    public bool IsHeldByLeftHand => leftHandJoint != null;
+
+
+    private void Awake()
     {
-        rb = GetComponent<Rigidbody>();
-        
-        // If no explicit grip point, create one at the current position
-        if (weaponGripPoint == null)
+        // rb = GetComponent<Rigidbody>();
+
+        // Error checking to help you find setup problems in the Editor
+        if (rightGripPoint == null)
         {
-            GameObject gripObj = new GameObject("WeaponGripPoint");
-            gripObj.transform.SetParent(transform);
-            gripObj.transform.localPosition = Vector3.zero;
-            weaponGripPoint = gripObj.transform;
+            Debug.LogError($"Weapon '{name}' is missing its 'rightGripPoint'. This is required.", this);
+        }
+        if (isTwoHanded && leftGripPoint == null)
+        {
+            Debug.LogError($"Weapon '{name}' is marked as 'isTwoHanded' but is missing its 'leftGripPoint'.", this);
         }
     }
 
-    public void PickupWeapon(Transform handGripPoint, Transform hand)
+    // This is the new, corrected Pickup method for Weapon.cs
+    public void Pickup(Transform handGripPoint, Rigidbody handRigidbody, bool isRightHand)
     {
-        if (isEquipped) return;
+        Transform weaponGrip;
 
-        isEquipped = true;
+        // --- THIS IS THE NEW LOGIC ---
+        // If the weapon is NOT two-handed, it's ambidextrous.
+        // It should ALWAYS use its primary grip point (rightGripPoint),
+        // regardless of which hand is picking it up.
+        if (!isTwoHanded)
+        {
+            weaponGrip = rightGripPoint;
+        }
+        else
+        {
+            // Only if it IS a two-handed weapon do we choose between left and right grips.
+            weaponGrip = isRightHand ? rightGripPoint : leftGripPoint;
+        }
+        // --- END OF NEW LOGIC ---
 
-        // Position the weapon so grip points align
-        AlignGripPoints(handGripPoint);
+        if (weaponGrip == null)
+        {
+            // This error will now correctly catch if a 1H weapon is missing its main grip.
+            Debug.LogError($"Weapon '{name}' is missing a valid grip point for the selected hand.", this);
+            return;
+        }
 
-        // Make it a child of the hand (optional, but helps with tracking)
-        // transform.SetParent(hand);
+        // The "snap" for the first hand is unchanged and correct.
+        if (!IsEquipped)
+        {
+            AlignGripPoints(handGripPoint, weaponGrip);
+        }
 
-        // Add FixedJoint
-        if (fixedJoint != null)
-            Destroy(fixedJoint);
+        // ... THE REST OF THE METHOD (creating the joint) IS UNCHANGED ...
+        ConfigurableJoint joint;
+        if (isRightHand)
+        {
+            if (rightHandJoint != null) Destroy(rightHandJoint);
+            rightHandJoint = gameObject.AddComponent<ConfigurableJoint>();
+            joint = rightHandJoint;
+        }
+        else
+        {
+            if (leftHandJoint != null) Destroy(leftHandJoint);
+            leftHandJoint = gameObject.AddComponent<ConfigurableJoint>();
+            joint = leftHandJoint;
+        }
 
-        fixedJoint = gameObject.AddComponent<FixedJoint>();
-        fixedJoint.connectedBody = hand.GetComponent<Rigidbody>();
+        joint.connectedBody = handRigidbody;
+        joint.autoConfigureConnectedAnchor = true;
+        joint.anchor = transform.InverseTransformPoint(weaponGrip.position);
+        joint.xMotion = ConfigurableJointMotion.Locked;
+        joint.yMotion = ConfigurableJointMotion.Locked;
+        joint.zMotion = ConfigurableJointMotion.Locked;
+        joint.angularXMotion = ConfigurableJointMotion.Locked;
+        joint.angularYMotion = ConfigurableJointMotion.Locked;
+        joint.angularZMotion = ConfigurableJointMotion.Locked;
     }
 
-    public void DropWeapon()
+    /// <summary>
+    /// Detaches the weapon from a specified hand.
+    /// </summary>
+    public void Drop(bool isRightHand)
     {
-        if (!isEquipped) return;
-
-        isEquipped = false;
-
-        // Remove FixedJoint
-        if (fixedJoint != null)
-            Destroy(fixedJoint);
-
-        // Optionally unparent if you parented it
-        // transform.SetParent(null);
+        if (isRightHand)
+        {
+            if (rightHandJoint != null)
+            {
+                Destroy(rightHandJoint);
+                rightHandJoint = null;
+            }
+        }
+        else
+        {
+            if (leftHandJoint != null)
+            {
+                Destroy(leftHandJoint);
+                leftHandJoint = null;
+            }
+        }
     }
 
-    private void AlignGripPoints(Transform handGripPoint)
+    /// <summary>
+    /// Instantly teleports and rotates the weapon to perfectly align its grip with the hand's grip.
+    /// </summary>
+    private void AlignGripPoints(Transform handGripPoint, Transform weaponGripPoint)
     {
-        // Calculate rotation needed to align grip point rotations
-        Quaternion currentGripWorldRot = transform.rotation * Quaternion.Euler(weaponGripPoint.localEulerAngles);
-        Quaternion rotationDifference = handGripPoint.rotation * Quaternion.Inverse(currentGripWorldRot);
-        
-        // Apply rotation to weapon
+        // Calculate the rotation needed to align the grips.
+        Quaternion rotationDifference = handGripPoint.rotation * Quaternion.Inverse(weaponGripPoint.rotation);
+        // Apply the rotation to the weapon.
         transform.rotation = rotationDifference * transform.rotation;
-        
-        // Move weapon so grip point position aligns with hand grip point
-        Vector3 currentGripWorldPos = transform.TransformPoint(weaponGripPoint.localPosition);
-        Vector3 offset = handGripPoint.position - currentGripWorldPos;
-        transform.position += offset;
+
+        // Calculate the position offset needed to align the grips.
+        Vector3 positionDifference = handGripPoint.position - weaponGripPoint.position;
+        // Apply the offset to the weapon.
+        transform.position += positionDifference;
     }
-
-    public bool IsEquipped => isEquipped;
 }
-

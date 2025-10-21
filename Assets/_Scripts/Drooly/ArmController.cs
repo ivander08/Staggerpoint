@@ -78,8 +78,8 @@ public class ArmController : MonoBehaviour
     #region Weapon Twist
     [Header("Weapon Twist")]
     [SerializeField] private bool enableWeaponTwist = true;
-    [SerializeField] [Range(0f, 1f)] private float twistActivateThreshold = 0.7f;
-    [SerializeField] [Range(-1f, 1f)] private float twistReleaseThreshold = -0.5f;
+    [SerializeField][Range(0f, 1f)] private float twistActivateThreshold = 0.7f;
+    [SerializeField][Range(-1f, 1f)] private float twistReleaseThreshold = -0.5f;
 
     [Header("Right Arm Twist Angles")]
     [SerializeField] private float rightWeaponTwistAngleOutward = -170f;
@@ -112,6 +112,9 @@ public class ArmController : MonoBehaviour
 
     private float _originalBalanceForce;
     private float _originalBalanceDamper;
+
+    [HideInInspector]
+    public bool isTwoHandedMode = false;
     #endregion
 
     #region Debug
@@ -261,12 +264,38 @@ public class ArmController : MonoBehaviour
         }
     }
 
+    // This is the NEW UpdateArmSwings method for ArmController.cs
     private void UpdateArmSwings()
     {
-        if (_isRightArmSwinging)
+        if (isTwoHandedMode)
+        {
+            // --- TWO-HANDED LOGIC ---
+            // The right arm is the PILOT. It moves based on mouse input.
             UpdateIKTargetPosition(rightHandIKTarget, rightShoulderAnchor, ref _currentRightSwingYaw, ref _currentRightSwingPitch, false);
-        if (_isLeftArmSwinging)
-            UpdateIKTargetPosition(leftHandIKTarget, leftShoulderAnchor, ref _currentLeftSwingYaw, ref _currentLeftSwingPitch, true);
+
+            // The left arm is the CO-PILOT. Its target is calculated based on the right arm's target.
+            // We need a reference to the currently held weapon to know the grip offset.
+            Weapon heldWeapon = weaponPickupManager.equippedWeaponRight; // You will need to add a reference to WeaponPickupManager
+
+            if (heldWeapon != null)
+            {
+                // Calculate the position offset from the right grip to the left grip in world space.
+                Vector3 gripOffset = heldWeapon.leftGripPoint.position - heldWeapon.rightGripPoint.position;
+
+                // Set the left hand's IK target to follow the right hand's target.
+                leftHandIKTarget.position = rightHandIKTarget.position + gripOffset;
+                leftHandIKTarget.rotation = rightHandIKTarget.rotation; // Keep the rotation synchronized as well.
+            }
+        }
+        else
+        {
+            // --- ONE-HANDED / NORMAL LOGIC ---
+            // If not in two-handed mode, run the normal independent arm logic.
+            if (_isRightArmSwinging)
+                UpdateIKTargetPosition(rightHandIKTarget, rightShoulderAnchor, ref _currentRightSwingYaw, ref _currentRightSwingPitch, false);
+            if (_isLeftArmSwinging)
+                UpdateIKTargetPosition(leftHandIKTarget, leftShoulderAnchor, ref _currentLeftSwingYaw, ref _currentLeftSwingPitch, true);
+        }
     }
     #endregion
 
@@ -309,17 +338,14 @@ public class ArmController : MonoBehaviour
         yaw = Mathf.Clamp(yaw, minYaw, maxYaw);
         pitch = Mathf.Clamp(pitch, -maxVerticalSwingAngle, maxVerticalSwingAngle);
 
-        // Update IK target position
         float radius = CalculateRadiusAtAngle(yaw, isLeftArm);
         Vector3 newHorizontalDir = Quaternion.AngleAxis(yaw, charUp) * _hipsTransform.forward;
         Vector3 pitchRotationAxis = Vector3.Cross(newHorizontalDir, charUp).normalized;
         Vector3 newArmVector = Quaternion.AngleAxis(pitch, pitchRotationAxis) * newHorizontalDir;
         handIKTarget.position = shoulderAnchor.position + newArmVector.normalized * radius;
 
-        // Update weapon twist
         UpdateWeaponTwist(isLeftArm, minYaw, maxYaw, yaw);
 
-        // Update hand rotation
         handIKTarget.rotation = Quaternion.LookRotation(_cameraTransform.forward, charUp);
     }
 
@@ -357,7 +383,6 @@ public class ArmController : MonoBehaviour
 
         int currentTwistState = isLeftArm ? _leftArmTwistState : _rightArmTwistState;
 
-        // State machine
         if (currentTwistState == 0)
         {
             if (isRightArm ? (swingProgress > activate) : (swingProgress < activate))
@@ -379,7 +404,6 @@ public class ArmController : MonoBehaviour
         if (isLeftArm) _leftArmTwistState = currentTwistState;
         else _rightArmTwistState = currentTwistState;
 
-        // Apply twist
         float targetTwistAngle = 0f;
         if (currentTwistState == 1)
             targetTwistAngle = isRightArm ? rightWeaponTwistAngleOutward : leftWeaponTwistAngleOutward;
