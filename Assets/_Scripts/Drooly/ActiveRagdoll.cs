@@ -46,6 +46,7 @@ public class ActiveRagdoll : MonoBehaviour
     public int balanceForce = 10;
     public int balanceDamping = 1;
     public LayerMask ragdollLayer;
+    public LayerMask groundLayer;
 
     // Private State
     private Vector3 _leftFootGroundTarget, _rightFootGroundTarget;
@@ -467,7 +468,7 @@ public class ActiveRagdoll : MonoBehaviour
 
     private Vector3 GetGroundPoint(Vector3 position)
     {
-        if (Physics.Raycast(position + Vector3.up * 2f, Vector3.down, out RaycastHit hit, 5f, ~ragdollLayer))
+        if (Physics.Raycast(position + Vector3.up * 2f, Vector3.down, out RaycastHit hit, 5f, groundLayer))
         {
             return hit.point;
         }
@@ -478,8 +479,8 @@ public class ActiveRagdoll : MonoBehaviour
 
     private void CheckAirborne()
     {
-        bool leftGrounded = Physics.Raycast(leftFootIKTarget.position + Vector3.up * 0.1f, Vector3.down, 0.3f, ~ragdollLayer);
-        bool rightGrounded = Physics.Raycast(rightFootIKTarget.position + Vector3.up * 0.1f, Vector3.down, 0.3f, ~ragdollLayer);
+        bool leftGrounded = Physics.Raycast(leftFootIKTarget.position + Vector3.up * 0.1f, Vector3.down, 0.3f, groundLayer);
+        bool rightGrounded = Physics.Raycast(rightFootIKTarget.position + Vector3.up * 0.1f, Vector3.down, 0.3f, groundLayer);
         isAirborne = !leftGrounded && !rightGrounded;
     }
 
