@@ -94,6 +94,16 @@ public class Weapon : MonoBehaviour
         joint.projectionMode = JointProjectionMode.PositionAndRotation;
         joint.projectionAngle = 3.0f;
         joint.projectionDistance = 0.01f;
+        // joint.enableCollision = true;
+        
+        // JointDrive drive = new JointDrive();
+        // drive.positionSpring = 100000;
+        // drive.positionDamper = 100;
+        // drive.maximumForce = Mathf.Infinity;
+        // joint.xDrive = drive;
+        // joint.yDrive = drive;
+        // joint.zDrive = drive;
+
     }
 
     /// <summary>
