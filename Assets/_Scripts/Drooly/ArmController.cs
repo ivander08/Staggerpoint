@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Collections;
 using System.Collections.Generic;
 
 public class ArmController : MonoBehaviour
@@ -89,6 +90,17 @@ public class ArmController : MonoBehaviour
     [SerializeField] private float leftWeaponTwistAngleOutward = 170f;
     [SerializeField] private float leftWeaponTwistAngleInward = -170f;
 
+    [Header("Recoil Response")]
+    [Tooltip("How much to reduce follow force during recoil (0 = no force, 1 = full force)")]
+    [SerializeField] private float followForceReduction = 0.05f;
+
+    [Tooltip("How long to reduce follow force after impact")]
+    [SerializeField] private float recoilRecoveryTime = 0.15f;
+
+    [Tooltip("Show debug info for recoil system")]
+    [SerializeField] private bool showRecoilDebug = true;
+
+
     private Quaternion _originalRightForearmRotation;
     private Quaternion _originalLeftForearmRotation;
     private int _rightArmTwistState;
@@ -104,6 +116,11 @@ public class ArmController : MonoBehaviour
     private float _currentRightSwingPitch;
     private float _currentLeftSwingYaw;
     private float _currentLeftSwingPitch;
+
+    private float _currentRightFollowForce = 1f;  // 0-1 multiplier
+    private float _currentLeftFollowForce = 1f;   // 0-1 multiplier
+    private Coroutine _rightRecoilCoroutine;
+    private Coroutine _leftRecoilCoroutine;
 
     private List<ConfigurableJoint> _rightArmJoints = new();
     private List<JointDrive> _originalRightArmDrives = new();
@@ -139,8 +156,8 @@ public class ArmController : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (_isRightArmSwinging) MoveArmTowardsTarget(rightHandRigidbody, rightHandIKTarget);
-        if (_isLeftArmSwinging) MoveArmTowardsTarget(leftHandRigidbody, leftHandIKTarget);
+        if (_isRightArmSwinging) MoveArmTowardsTarget(rightHandRigidbody, rightHandIKTarget, true);
+        if (_isLeftArmSwinging) MoveArmTowardsTarget(leftHandRigidbody, leftHandIKTarget, false);
     }
 
     #region Initialization
@@ -214,6 +231,110 @@ public class ArmController : MonoBehaviour
         return isRightArm ? (weaponPickupManager.equippedWeaponRight != null) : (weaponPickupManager.equippedWeaponLeft != null);
     }
     #endregion
+
+    // Call this in Start() or whenever a weapon is equipped
+    public void SubscribeToWeaponRecoil(Weapon weapon)
+    {
+        if (weapon == null) return;
+
+        WeaponImpactRecoil recoilComponent = weapon.GetComponent<WeaponImpactRecoil>();
+        if (recoilComponent == null)
+        {
+            Debug.LogWarning($"Weapon '{weapon.name}' doesn't have WeaponImpactRecoil component!");
+            return;
+        }
+
+        // Subscribe to recoil events
+        recoilComponent.OnRecoilTriggered += HandleWeaponRecoil;
+    }
+
+    // Call this when weapon is dropped
+    public void UnsubscribeFromWeaponRecoil(Weapon weapon)
+    {
+        if (weapon == null) return;
+
+        WeaponImpactRecoil recoilComponent = weapon.GetComponent<WeaponImpactRecoil>();
+        if (recoilComponent != null)
+        {
+            recoilComponent.OnRecoilTriggered -= HandleWeaponRecoil;
+        }
+    }
+
+
+    // =====================================================
+    // 3. ADD THIS EVENT HANDLER:
+    // =====================================================
+
+    private void HandleWeaponRecoil(WeaponImpactRecoil.RecoilData recoilData)
+    {
+        if (showRecoilDebug)
+        {
+            Debug.Log($"<color=magenta>[ARM RECOIL]</color> {(recoilData.isRightHand ? "Right" : "Left")} hand responding to {recoilData.impactForce:F0}N impact");
+        }
+
+        // Stop any existing recoil recovery for this hand
+        if (recoilData.isRightHand)
+        {
+            if (_rightRecoilCoroutine != null) StopCoroutine(_rightRecoilCoroutine);
+            _rightRecoilCoroutine = StartCoroutine(RecoilRecovery(true));
+        }
+        else
+        {
+            if (_leftRecoilCoroutine != null) StopCoroutine(_leftRecoilCoroutine);
+            _leftRecoilCoroutine = StartCoroutine(RecoilRecovery(false));
+        }
+    }
+
+
+    // =====================================================
+    // 4. ADD THIS COROUTINE:
+    // =====================================================
+
+    private IEnumerator RecoilRecovery(bool isRightHand)
+    {
+        // Immediately reduce follow force
+        if (isRightHand)
+            _currentRightFollowForce = followForceReduction;
+        else
+            _currentLeftFollowForce = followForceReduction;
+
+        if (showRecoilDebug)
+        {
+            Debug.Log($"<color=orange>[FOLLOW FORCE REDUCED]</color> {(isRightHand ? "Right" : "Left")} hand to {followForceReduction * 100f:F0}%");
+        }
+
+        // Wait for recovery time
+        yield return new WaitForSeconds(recoilRecoveryTime);
+
+        // Smoothly restore follow force over 0.1 seconds
+        float elapsed = 0f;
+        float restoreTime = 0.1f;
+        float startForce = followForceReduction;
+
+        while (elapsed < restoreTime)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / restoreTime;
+
+            if (isRightHand)
+                _currentRightFollowForce = Mathf.Lerp(startForce, 1f, t);
+            else
+                _currentLeftFollowForce = Mathf.Lerp(startForce, 1f, t);
+
+            yield return null;
+        }
+
+        // Ensure it's fully restored
+        if (isRightHand)
+            _currentRightFollowForce = 1f;
+        else
+            _currentLeftFollowForce = 1f;
+
+        if (showRecoilDebug)
+        {
+            Debug.Log($"<color=green>[FOLLOW FORCE RESTORED]</color> {(isRightHand ? "Right" : "Left")} hand back to 100%");
+        }
+    }
 
     #region Swing Management
     private void StartSwing(bool isRightArm)
@@ -452,18 +573,24 @@ public class ArmController : MonoBehaviour
     #endregion
 
     #region Arm Movement
-    private void MoveArmTowardsTarget(Rigidbody handRB, Transform handIKTarget)
+    private void MoveArmTowardsTarget(Rigidbody handRB, Transform handIKTarget, bool isRightHand)
     {
-        Vector3 positionDifference = handIKTarget.position - handRB.position;
-        handRB.AddForce(positionDifference * followForce * Time.fixedDeltaTime, ForceMode.Force);
+        // Get current follow force multiplier for this hand
+        float forceMultiplier = isRightHand ? _currentRightFollowForce : _currentLeftFollowForce;
 
+        // Apply position force (with recoil reduction)
+        Vector3 positionDifference = handIKTarget.position - handRB.position;
+        handRB.AddForce(positionDifference * followForce * forceMultiplier * Time.fixedDeltaTime, ForceMode.Force);
+
+        // Apply rotation torque (with recoil reduction)
         Quaternion rotationDifference = handIKTarget.rotation * Quaternion.Inverse(handRB.rotation);
         rotationDifference.ToAngleAxis(out float angleInDegrees, out Vector3 rotationAxis);
         if (angleInDegrees > 180f) angleInDegrees -= 360f;
 
         Vector3 torque = rotationAxis.normalized * (angleInDegrees * Mathf.Deg2Rad * rotateTorque);
-        handRB.AddTorque(torque * Time.fixedDeltaTime, ForceMode.Force);
+        handRB.AddTorque(torque * forceMultiplier * Time.fixedDeltaTime, ForceMode.Force);
     }
+
 
     private void ReTenseArm(List<ConfigurableJoint> joints, List<JointDrive> originalDrives)
     {
@@ -529,6 +656,35 @@ public class ArmController : MonoBehaviour
         }
 
         DrawActiveHandMarkers();
+
+        if (!Application.isPlaying || !showRecoilDebug)
+            return;
+
+        // Show current follow force as text above hands
+        if (rightHandRigidbody != null)
+        {
+            Vector3 rightPos = rightHandRigidbody.position + Vector3.up * 0.3f;
+            Color rightColor = _currentRightFollowForce < 0.5f ? Color.red : Color.green;
+            Gizmos.color = rightColor;
+            Gizmos.DrawWireSphere(rightHandRigidbody.position, 0.05f);
+
+#if UNITY_EDITOR
+            UnityEditor.Handles.Label(rightPos, $"R Force: {_currentRightFollowForce * 100f:F0}%");
+#endif
+        }
+
+        if (leftHandRigidbody != null)
+        {
+            Vector3 leftPos = leftHandRigidbody.position + Vector3.up * 0.3f;
+            Color leftColor = _currentLeftFollowForce < 0.5f ? Color.red : Color.green;
+            Gizmos.color = leftColor;
+            Gizmos.DrawWireSphere(leftHandRigidbody.position, 0.05f);
+
+#if UNITY_EDITOR
+            UnityEditor.Handles.Label(leftPos, $"L Force: {_currentLeftFollowForce * 100f:F0}%");
+#endif
+        }
+
     }
 
     private void DrawActiveHandMarkers()

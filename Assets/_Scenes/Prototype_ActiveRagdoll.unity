@@ -2966,6 +2966,9 @@ MonoBehaviour:
   rightWeaponTwistAngleInward: -50
   leftWeaponTwistAngleOutward: -150
   leftWeaponTwistAngleInward: 50
+  followForceReduction: 0.01
+  recoilRecoveryTime: 0.15
+  showRecoilDebug: 1
   isTwoHandedMode: 0
   showPunchPaths: 1
   pathResolution: 32
@@ -4739,13 +4742,13 @@ ConfigurableJoint:
   m_AngularXDrive:
     serializedVersion: 4
     positionSpring: 150
-    positionDamper: 5
+    positionDamper: 0
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
     positionSpring: 150
-    positionDamper: 5
+    positionDamper: 0
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -6059,14 +6062,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 150
-    positionDamper: 5
+    positionSpring: 300
+    positionDamper: 0
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 150
-    positionDamper: 5
+    positionSpring: 300
+    positionDamper: 0
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -6515,7 +6518,7 @@ ConfigurableJoint:
     spring: 0
     damper: 0
   m_AngularYLimit:
-    limit: 15
+    limit: 50
     bounciness: 0
     contactDistance: 0
   m_AngularZLimit:
@@ -6547,14 +6550,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 15000
-    positionDamper: 150
+    positionSpring: 150
+    positionDamper: 0
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 15000
-    positionDamper: 150
+    positionSpring: 150
+    positionDamper: 0
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -6765,14 +6768,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 15
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 15
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -7141,14 +7144,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 15
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 15
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -7485,14 +7488,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 150
-    positionDamper: 1
+    positionSpring: 300
+    positionDamper: 0
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 150
-    positionDamper: 1
+    positionSpring: 300
+    positionDamper: 0
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -8627,13 +8630,13 @@ ConfigurableJoint:
   m_AngularXDrive:
     serializedVersion: 4
     positionSpring: 150
-    positionDamper: 5
+    positionDamper: 0
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
     positionSpring: 150
-    positionDamper: 5
+    positionDamper: 0
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -9868,14 +9871,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 15
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 15
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -18342,6 +18345,7 @@ GameObject:
   - component: {fileID: 1747412844}
   - component: {fileID: 1747412848}
   - component: {fileID: 1747412850}
+  - component: {fileID: 1747412851}
   m_Layer: 9
   m_Name: Fake Sword
   m_TagString: Untagged
@@ -18359,7 +18363,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 1.936, y: 1.101, z: 0.37}
-  m_LocalScale: {x: 0.06278673, y: 1.0096005, z: 0.05426776}
+  m_LocalScale: {x: 0.06278673, y: 1.0096005, z: 0.0050085345}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 856041142}
@@ -18478,6 +18482,30 @@ MonoBehaviour:
   isTwoHanded: 0
   rightGripPoint: {fileID: 856041142}
   leftGripPoint: {fileID: 0}
+--- !u!114 &1747412851
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1747412842}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 764596680c0b5ba47a17c21f4cc59496, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  impactThreshold: 150
+  recoilMultiplier: 0.05
+  jointWeakeningDuration: 0.05
+  weakenedSpring: 5000
+  weakenedDamper: 500
+  weakenedMaxForce: 20000
+  normalSpring: 80000
+  normalDamper: 3000
+  normalMaxForce: 150000
+  showDebugInfo: 1
+  showDebugVisuals: 1
+  outgoingImpactMultiplier: 10
 --- !u!1 &1773611383 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7450639032255933077, guid: 932aab0038354ba42a7e6ca0239b940f,
@@ -19229,14 +19257,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 150
-    positionDamper: 1
+    positionSpring: 300
+    positionDamper: 0
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 150
-    positionDamper: 1
+    positionSpring: 300
+    positionDamper: 0
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -20260,7 +20288,7 @@ ConfigurableJoint:
     spring: 0
     damper: 0
   m_AngularYLimit:
-    limit: 15
+    limit: 50
     bounciness: 0
     contactDistance: 0
   m_AngularZLimit:
@@ -20292,14 +20320,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 15000
-    positionDamper: 150
+    positionSpring: 150
+    positionDamper: 0
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 15000
-    positionDamper: 150
+    positionSpring: 150
+    positionDamper: 0
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -20910,14 +20938,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 15
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 1500
-    positionDamper: 15
+    positionSpring: 150
+    positionDamper: 1
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:
@@ -21408,14 +21436,14 @@ ConfigurableJoint:
   m_RotationDriveMode: 0
   m_AngularXDrive:
     serializedVersion: 4
-    positionSpring: 150
-    positionDamper: 5
+    positionSpring: 300
+    positionDamper: 0
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_AngularYZDrive:
     serializedVersion: 4
-    positionSpring: 150
-    positionDamper: 5
+    positionSpring: 300
+    positionDamper: 0
     maximumForce: 3.4028233e+38
     useAcceleration: 0
   m_SlerpDrive:

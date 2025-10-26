@@ -38,7 +38,11 @@ public class WeaponPickupManager : MonoBehaviour
         // --- SCENARIO 1: HOLDING A 2H WEAPON WITH BOTH HANDS ---
         if (equippedWeaponRight != null && equippedWeaponRight == equippedWeaponLeft)
         {
-            armController.isTwoHandedMode = false; // Turn off two-handed mode
+            armController.isTwoHandedMode = false;
+
+            // UNSUBSCRIBE from recoil before dropping
+            armController.UnsubscribeFromWeaponRecoil(equippedWeaponRight);  // ADD THIS LINE
+
             equippedWeaponRight.Drop(true);
             equippedWeaponRight.Drop(false);
             equippedWeaponRight = null;
@@ -51,13 +55,16 @@ public class WeaponPickupManager : MonoBehaviour
         // --- SCENARIO 2: THE PRESSED HAND IS ALREADY HOLDING SOMETHING ---
         if (currentEquipped != null)
         {
+            // UNSUBSCRIBE from recoil before dropping
+            armController.UnsubscribeFromWeaponRecoil(currentEquipped);  // ADD THIS LINE
+
             currentEquipped.Drop(isRight);
             if (isRight) equippedWeaponRight = null;
             else equippedWeaponLeft = null;
             return;
         }
 
-        // --- SCENARIO 3 (THE SPECIAL CASE): HOLDING A 2H WEAPON IN RIGHT HAND, 'Q' IS PRESSED ---
+        // --- SCENARIO 3: HOLDING A 2H WEAPON IN RIGHT HAND, 'Q' IS PRESSED ---
         if (!isRight && equippedWeaponRight != null && equippedWeaponRight.isTwoHanded)
         {
             StartCoroutine(AttachSecondHandRoutine());
@@ -77,6 +84,10 @@ public class WeaponPickupManager : MonoBehaviour
                 weapon.Pickup(handGrip, hand, isRight);
                 if (isRight) equippedWeaponRight = weapon;
                 else equippedWeaponLeft = weapon;
+
+                // SUBSCRIBE to recoil after picking up
+                armController.SubscribeToWeaponRecoil(weapon);  // ADD THIS LINE
+
                 return;
             }
         }
@@ -118,6 +129,7 @@ public class WeaponPickupManager : MonoBehaviour
 
         // --- STEP 6: UPDATE STATE ---
         equippedWeaponLeft = equippedWeaponRight;
+        armController.isTwoHandedMode = true;
 
         armController.isTwoHandedMode = true;
     }

@@ -34,12 +34,12 @@ public class Weapon : MonoBehaviour
         }
     }
 
-    // This is the new, corrected Pickup method for Weapon.cs
+    // REPLACE your existing Pickup() method in Weapon.cs with this version:
+
     public void Pickup(Transform handGripPoint, Rigidbody handRigidbody, bool isRightHand)
     {
         Transform weaponGrip;
 
-        // --- THIS IS THE NEW LOGIC ---
         // If the weapon is NOT two-handed, it's ambidextrous.
         // It should ALWAYS use its primary grip point (rightGripPoint),
         // regardless of which hand is picking it up.
@@ -52,11 +52,9 @@ public class Weapon : MonoBehaviour
             // Only if it IS a two-handed weapon do we choose between left and right grips.
             weaponGrip = isRightHand ? rightGripPoint : leftGripPoint;
         }
-        // --- END OF NEW LOGIC ---
 
         if (weaponGrip == null)
         {
-            // This error will now correctly catch if a 1H weapon is missing its main grip.
             Debug.LogError($"Weapon '{name}' is missing a valid grip point for the selected hand.", this);
             return;
         }
@@ -67,7 +65,7 @@ public class Weapon : MonoBehaviour
             AlignGripPoints(handGripPoint, weaponGrip);
         }
 
-        // ... THE REST OF THE METHOD (creating the joint) IS UNCHANGED ...
+        // Create the joint
         ConfigurableJoint joint;
         if (isRightHand)
         {
@@ -82,28 +80,40 @@ public class Weapon : MonoBehaviour
             joint = leftHandJoint;
         }
 
+        // Basic joint setup
         joint.connectedBody = handRigidbody;
         joint.autoConfigureConnectedAnchor = true;
         joint.anchor = transform.InverseTransformPoint(weaponGrip.position);
-        joint.xMotion = ConfigurableJointMotion.Locked;
-        joint.yMotion = ConfigurableJointMotion.Locked;
-        joint.zMotion = ConfigurableJointMotion.Locked;
-        joint.angularXMotion = ConfigurableJointMotion.Locked;
-        joint.angularYMotion = ConfigurableJointMotion.Locked;
-        joint.angularZMotion = ConfigurableJointMotion.Locked;
+
+        // --- CHANGED: Use FREE motion with DRIVES instead of LOCKED ---
+        // This allows the joint to "give" under extreme force, preventing freezes
+        joint.xMotion = ConfigurableJointMotion.Free;
+        joint.yMotion = ConfigurableJointMotion.Free;
+        joint.zMotion = ConfigurableJointMotion.Free;
+        joint.angularXMotion = ConfigurableJointMotion.Free;
+        joint.angularYMotion = ConfigurableJointMotion.Free;
+        joint.angularZMotion = ConfigurableJointMotion.Free;
+
+        // --- NEW: Strong drives that make it FEEL locked, but can give under impact ---
+        // These values are managed by WeaponImpactRecoil component
+        JointDrive strongDrive = new JointDrive
+        {
+            positionSpring = 80000f,    // Very strong - feels rigid
+            positionDamper = 3000f,     // High damping - prevents wobble
+            maximumForce = 150000f      // Safety cap
+        };
+
+        joint.xDrive = strongDrive;
+        joint.yDrive = strongDrive;
+        joint.zDrive = strongDrive;
+        joint.angularXDrive = strongDrive;
+        joint.angularYZDrive = strongDrive;
+        // --- END NEW CODE ---
+
+        // Projection settings (keep your existing values)
         joint.projectionMode = JointProjectionMode.PositionAndRotation;
         joint.projectionAngle = 3.0f;
         joint.projectionDistance = 0.01f;
-        // joint.enableCollision = true;
-        
-        // JointDrive drive = new JointDrive();
-        // drive.positionSpring = 100000;
-        // drive.positionDamper = 100;
-        // drive.maximumForce = Mathf.Infinity;
-        // joint.xDrive = drive;
-        // joint.yDrive = drive;
-        // joint.zDrive = drive;
-
     }
 
     /// <summary>
