@@ -21,6 +21,7 @@ public class ArmController : MonoBehaviour
     [SerializeField] private Transform rightArmRoot;
     [SerializeField] private ConfigurableJoint rightForearmJoint;
     [SerializeField] private ConfigurableJoint rightFingerJoint;
+    [SerializeField] private ConfigurableJoint rightWristJoint;
 
     [Header("Left Arm")]
     [SerializeField] private Rigidbody leftHandRigidbody;
@@ -28,6 +29,7 @@ public class ArmController : MonoBehaviour
     [SerializeField] private Transform leftArmRoot;
     [SerializeField] private ConfigurableJoint leftForearmJoint;
     [SerializeField] private ConfigurableJoint leftFingerJoint;
+    [SerializeField] private ConfigurableJoint leftWristJoint;
 
     [Header("IK Targets")]
     [SerializeField] private Transform rightHandIKTarget;
@@ -90,6 +92,13 @@ public class ArmController : MonoBehaviour
     [SerializeField] private float leftWeaponTwistAngleOutward = 170f;
     [SerializeField] private float leftWeaponTwistAngleInward = -170f;
 
+    [Header("Wrist Flexion")]
+    [SerializeField] private bool enableWristFlexion = true;
+    [SerializeField] private float rightWristRadialFlexion = -50f;  // Y rotation at swing start
+    [SerializeField] private float rightWristUlnarFlexion = 50f;    // Y rotation at threshold
+    [SerializeField] private float leftWristRadialFlexion = -50f;   // Y rotation at swing start
+    [SerializeField] private float leftWristUlnarFlexion = 50f;
+
     [Header("Recoil Response")]
     [Tooltip("How much to reduce follow force during recoil (0 = no force, 1 = full force)")]
     [SerializeField] private float followForceReduction = 0.05f;
@@ -105,6 +114,8 @@ public class ArmController : MonoBehaviour
     private Quaternion _originalLeftForearmRotation;
     private int _rightArmTwistState;
     private int _leftArmTwistState;
+    private Quaternion _originalRightWristRotation;
+    private Quaternion _originalLeftWristRotation;
     #endregion
 
     #region State
@@ -201,6 +212,10 @@ public class ArmController : MonoBehaviour
         _originalBalanceDamper = activeRagdoll.balanceDamping;
         _originalRightForearmRotation = rightForearmJoint.targetRotation;
         _originalLeftForearmRotation = leftForearmJoint.targetRotation;
+        if (rightWristJoint != null)
+            _originalRightWristRotation = rightWristJoint.targetRotation;
+        if (leftWristJoint != null)
+            _originalLeftWristRotation = leftWristJoint.targetRotation;
     }
     #endregion
 
@@ -369,6 +384,8 @@ public class ArmController : MonoBehaviour
             _rightArmTwistState = 0;
             ReTenseArm(_rightArmJoints, _originalRightArmDrives);
             rightForearmJoint.targetRotation = _originalRightForearmRotation;
+            if (rightWristJoint != null)
+                rightWristJoint.targetRotation = _originalRightWristRotation;
         }
         else
         {
@@ -376,6 +393,8 @@ public class ArmController : MonoBehaviour
             _leftArmTwistState = 0;
             ReTenseArm(_leftArmJoints, _originalLeftArmDrives);
             leftForearmJoint.targetRotation = _originalLeftForearmRotation;
+            if (leftWristJoint != null)
+                leftWristJoint.targetRotation = _originalLeftWristRotation;
         }
 
         if (!_isRightArmSwinging && !_isLeftArmSwinging)
@@ -466,6 +485,7 @@ public class ArmController : MonoBehaviour
         handIKTarget.position = shoulderAnchor.position + newArmVector.normalized * radius;
 
         UpdateWeaponTwist(isLeftArm, minYaw, maxYaw, yaw);
+        UpdateWristFlexion(isLeftArm, minYaw, maxYaw, yaw);
 
         handIKTarget.rotation = Quaternion.LookRotation(_cameraTransform.forward, charUp);
     }
@@ -533,6 +553,47 @@ public class ArmController : MonoBehaviour
 
         Quaternion twist = Quaternion.Euler(0, 0, targetTwistAngle);
         targetJoint.targetRotation = originalRotation * twist;
+    }
+
+    private void UpdateWristFlexion(bool isLeftArm, float minYaw, float maxYaw, float yaw)
+    {
+        if (!enableWristFlexion) return;
+
+        ConfigurableJoint wristJoint = isLeftArm ? leftWristJoint : rightWristJoint;
+        if (wristJoint == null) return;
+
+        Quaternion originalRotation = isLeftArm ? _originalLeftWristRotation : _originalRightWristRotation;
+        bool isRightArm = !isLeftArm;
+
+        // Calculate swing progress from -1 (full left/inward) to 1 (full right/outward)
+        float swingProgress = (Mathf.InverseLerp(minYaw, maxYaw, yaw) - 0.5f) * 2f;
+
+        // Determine which side of the threshold we're on
+        float activate = isRightArm ? twistActivateThreshold : -twistActivateThreshold;
+
+        // Calculate target flexion angle based on threshold
+        float targetFlexionAngle;
+
+        if (isRightArm)
+        {
+            // Right arm: ulnar flexion when past EITHER threshold (0.7 or -0.7)
+            if (swingProgress >= twistActivateThreshold || swingProgress <= -twistActivateThreshold)
+                targetFlexionAngle = rightWristUlnarFlexion;
+            else
+                targetFlexionAngle = rightWristRadialFlexion;
+        }
+        else
+        {
+            // Left arm: ulnar flexion when past EITHER threshold (-0.7 or 0.7)
+            if (swingProgress <= -twistActivateThreshold || swingProgress >= twistActivateThreshold)
+                targetFlexionAngle = leftWristUlnarFlexion;
+            else
+                targetFlexionAngle = leftWristRadialFlexion;
+        }
+
+        // Apply the Y-axis rotation for wrist flexion
+        Quaternion flexion = Quaternion.Euler(0, targetFlexionAngle, 0);
+        wristJoint.targetRotation = originalRotation * flexion;
     }
 
     private float CalculateRadiusAtAngle(float yaw, bool isLeftArm)
