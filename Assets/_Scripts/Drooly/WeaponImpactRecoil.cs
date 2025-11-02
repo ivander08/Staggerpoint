@@ -41,9 +41,9 @@ public class WeaponImpactRecoil : MonoBehaviour
     [SerializeField] private bool showDebugInfo = true;
     [SerializeField] private bool showDebugVisuals = true;
 
-    [Header("Impact Amplification")]
-    [Tooltip("Multiplies impact force delivered to OTHER objects (doesn't affect recoil on you)")]
-    [SerializeField] private float outgoingImpactMultiplier = 1.0f;
+    // [Header("Impact Amplification")]
+    // [Tooltip("Multiplies impact force delivered to OTHER objects (doesn't affect recoil on you)")]
+    // [SerializeField] private float outgoingImpactMultiplier = 1.0f;
 
     // Events
     public event System.Action<RecoilData> OnRecoilTriggered;
@@ -238,7 +238,7 @@ public class WeaponImpactRecoil : MonoBehaviour
         // Decay debug visualization timer
         if (_debugVisualizationTimer > 0)
         {
-            _debugVisualizationTimer -= Time.deltaTime;
+            _debugVisualizationTimer -= Time.fixedDeltaTime;
         }
     }
 

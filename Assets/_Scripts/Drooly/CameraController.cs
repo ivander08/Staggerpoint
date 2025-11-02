@@ -62,8 +62,8 @@ public class CameraController : MonoBehaviour
         // Only update the camera's rotation angles if it is NOT locked.
         if (!_isLocked)
         {
-            _currentYaw += _lookInput.x * _lookSensitivity * Time.deltaTime * 50f;
-            _currentPitch -= _lookInput.y * _lookSensitivity * Time.deltaTime * 50f;
+            _currentYaw += _lookInput.x * _lookSensitivity * Time.fixedDeltaTime * 50f;
+            _currentPitch -= _lookInput.y * _lookSensitivity * Time.fixedDeltaTime * 50f;
             _currentPitch = Mathf.Clamp(_currentPitch, _minVerticalAngle, _maxVerticalAngle);
         }
 

@@ -430,7 +430,7 @@ public class ActiveRagdoll : MonoBehaviour
         _isStepping = true;
 
         Vector3 startPoint = foot.position;
-        float distance = Vector3.Distance(startPoint, target);
+        // float distance = Vector3.Distance(startPoint, target);
 
         // Adjust step height and duration based on urgency
         float actualStepHeight = stepHeight * Mathf.Lerp(0.5f, 1.2f, urgency);
@@ -445,7 +445,7 @@ public class ActiveRagdoll : MonoBehaviour
 
         while (timeElapsed < actualDuration)
         {
-            timeElapsed += Time.deltaTime;
+            timeElapsed += Time.fixedDeltaTime; // was deltaTime
             float t = timeElapsed / actualDuration;
 
             // Quadratic bezier curve for smooth step arc
@@ -504,7 +504,7 @@ public class ActiveRagdoll : MonoBehaviour
     {
         Vector3 comHorizontal = _centerOfMass;
         comHorizontal.y = hipsTransform.position.y;
-        stepGuide.position = Vector3.Lerp(stepGuide.position, comHorizontal, Time.deltaTime * 5f);
+        stepGuide.position = Vector3.Lerp(stepGuide.position, comHorizontal, Time.fixedDeltaTime * 5f); // was DeltaTime
         stepGuide.eulerAngles = new Vector3(0, hipsTransform.eulerAngles.y, 0);
     }
 

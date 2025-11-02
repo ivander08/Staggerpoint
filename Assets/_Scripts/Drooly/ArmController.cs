@@ -328,7 +328,7 @@ public class ArmController : MonoBehaviour
 
         while (elapsed < restoreTime)
         {
-            elapsed += Time.deltaTime;
+            elapsed += Time.fixedDeltaTime;
             float t = elapsed / restoreTime;
 
             if (isRightHand)
@@ -641,7 +641,7 @@ public class ArmController : MonoBehaviour
 
         // Apply position force (with recoil reduction)
         Vector3 positionDifference = handIKTarget.position - handRB.position;
-        handRB.AddForce(positionDifference * followForce * forceMultiplier * Time.fixedDeltaTime, ForceMode.Force);
+        handRB.AddForce(positionDifference * followForce * forceMultiplier, ForceMode.Force);
 
         // Apply rotation torque (with recoil reduction)
         Quaternion rotationDifference = handIKTarget.rotation * Quaternion.Inverse(handRB.rotation);
@@ -649,7 +649,7 @@ public class ArmController : MonoBehaviour
         if (angleInDegrees > 180f) angleInDegrees -= 360f;
 
         Vector3 torque = rotationAxis.normalized * (angleInDegrees * Mathf.Deg2Rad * rotateTorque);
-        handRB.AddTorque(torque * forceMultiplier * Time.fixedDeltaTime, ForceMode.Force);
+        handRB.AddTorque(torque * forceMultiplier, ForceMode.Force);
     }
 
 
