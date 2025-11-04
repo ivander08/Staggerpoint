@@ -14,8 +14,8 @@ TagManager:
   - Ground
   - PlayerRagdoll
   - Collidable
-  - 
-  - 
+  - Weapon
+  - GrabbingHand
   - 
   - 
   - 

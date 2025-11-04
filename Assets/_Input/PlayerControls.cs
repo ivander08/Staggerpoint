@@ -136,6 +136,24 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""PickupRight"",
+                    ""type"": ""Button"",
+                    ""id"": ""2134362f-0604-49cd-be69-36b548625155"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""PickupLeft"",
+                    ""type"": ""Button"",
+                    ""id"": ""4ad35812-cb86-41f8-ae28-f660c0f0d2f2"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -248,6 +266,28 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
                     ""action"": ""LeftArmIK"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""72aa3a77-3ce5-48d3-83c7-cca0d4d6178a"",
+                    ""path"": ""<Keyboard>/e"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""PickupRight"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""38d11b4d-cb04-4eaa-9f8f-1a8e2a58fefb"",
+                    ""path"": ""<Keyboard>/q"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""PickupLeft"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -261,6 +301,8 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
         m_Gameplay_ShoulderToggle = m_Gameplay.FindAction("ShoulderToggle", throwIfNotFound: true);
         m_Gameplay_RightArmIK = m_Gameplay.FindAction("RightArmIK", throwIfNotFound: true);
         m_Gameplay_LeftArmIK = m_Gameplay.FindAction("LeftArmIK", throwIfNotFound: true);
+        m_Gameplay_PickupRight = m_Gameplay.FindAction("PickupRight", throwIfNotFound: true);
+        m_Gameplay_PickupLeft = m_Gameplay.FindAction("PickupLeft", throwIfNotFound: true);
     }
 
     ~@PlayerControls()
@@ -346,6 +388,8 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
     private readonly InputAction m_Gameplay_ShoulderToggle;
     private readonly InputAction m_Gameplay_RightArmIK;
     private readonly InputAction m_Gameplay_LeftArmIK;
+    private readonly InputAction m_Gameplay_PickupRight;
+    private readonly InputAction m_Gameplay_PickupLeft;
     /// <summary>
     /// Provides access to input actions defined in input action map "Gameplay".
     /// </summary>
@@ -377,6 +421,14 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "Gameplay/LeftArmIK".
         /// </summary>
         public InputAction @LeftArmIK => m_Wrapper.m_Gameplay_LeftArmIK;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/PickupRight".
+        /// </summary>
+        public InputAction @PickupRight => m_Wrapper.m_Gameplay_PickupRight;
+        /// <summary>
+        /// Provides access to the underlying input action "Gameplay/PickupLeft".
+        /// </summary>
+        public InputAction @PickupLeft => m_Wrapper.m_Gameplay_PickupLeft;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -418,6 +470,12 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
             @LeftArmIK.started += instance.OnLeftArmIK;
             @LeftArmIK.performed += instance.OnLeftArmIK;
             @LeftArmIK.canceled += instance.OnLeftArmIK;
+            @PickupRight.started += instance.OnPickupRight;
+            @PickupRight.performed += instance.OnPickupRight;
+            @PickupRight.canceled += instance.OnPickupRight;
+            @PickupLeft.started += instance.OnPickupLeft;
+            @PickupLeft.performed += instance.OnPickupLeft;
+            @PickupLeft.canceled += instance.OnPickupLeft;
         }
 
         /// <summary>
@@ -444,6 +502,12 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
             @LeftArmIK.started -= instance.OnLeftArmIK;
             @LeftArmIK.performed -= instance.OnLeftArmIK;
             @LeftArmIK.canceled -= instance.OnLeftArmIK;
+            @PickupRight.started -= instance.OnPickupRight;
+            @PickupRight.performed -= instance.OnPickupRight;
+            @PickupRight.canceled -= instance.OnPickupRight;
+            @PickupLeft.started -= instance.OnPickupLeft;
+            @PickupLeft.performed -= instance.OnPickupLeft;
+            @PickupLeft.canceled -= instance.OnPickupLeft;
         }
 
         /// <summary>
@@ -519,5 +583,19 @@ public partial class @PlayerControls: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnLeftArmIK(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "PickupRight" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnPickupRight(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "PickupLeft" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnPickupLeft(InputAction.CallbackContext context);
     }
 }
