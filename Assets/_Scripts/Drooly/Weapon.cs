@@ -98,7 +98,7 @@ public class Weapon : MonoBehaviour
         // These values are managed by WeaponImpactRecoil component
         JointDrive strongDrive = new JointDrive
         {
-            positionSpring = 80000f,    // Very strong - feels rigid
+            positionSpring = 800000f,    // Very strong - feels rigid
             positionDamper = 3000f,     // High damping - prevents wobble
             maximumForce = 150000f      // Safety cap
         };

@@ -5729,7 +5729,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   impactThreshold: 150
-  recoilMultiplier: 0.05
+  recoilMultiplier: 0.01
   jointWeakeningDuration: 0.05
   weakenedSpring: 80000
   weakenedDamper: 3000
@@ -5739,7 +5739,6 @@ MonoBehaviour:
   normalMaxForce: 150000
   showDebugInfo: 1
   showDebugVisuals: 1
-  outgoingImpactMultiplier: 1
 --- !u!65 &701933117
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -18527,7 +18526,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   impactThreshold: 150
-  recoilMultiplier: 0.05
+  recoilMultiplier: 0.01
   jointWeakeningDuration: 0.05
   weakenedSpring: 80000
   weakenedDamper: 3000
@@ -18537,7 +18536,6 @@ MonoBehaviour:
   normalMaxForce: 150000
   showDebugInfo: 1
   showDebugVisuals: 1
-  outgoingImpactMultiplier: 10
 --- !u!1 &1773611383 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 7450639032255933077, guid: 932aab0038354ba42a7e6ca0239b940f,
