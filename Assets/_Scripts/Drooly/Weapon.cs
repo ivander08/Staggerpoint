@@ -99,8 +99,8 @@ public class Weapon : MonoBehaviour
         JointDrive strongDrive = new JointDrive
         {
             positionSpring = 800000f,    // Very strong - feels rigid
-            positionDamper = 3000f,     // High damping - prevents wobble
-            maximumForce = 150000f      // Safety cap
+            positionDamper = 8000f,     // High damping - prevents wobble
+            maximumForce = 999999999f      // Safety cap
         };
 
         joint.xDrive = strongDrive;
