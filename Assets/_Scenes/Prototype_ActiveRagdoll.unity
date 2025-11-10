@@ -2942,7 +2942,7 @@ MonoBehaviour:
   leftWristJoint: {fileID: 2001614739}
   rightHandIKTarget: {fileID: 1221933083}
   leftHandIKTarget: {fileID: 1266774499}
-  followForce: 3000
+  followForce: 1000
   rotateTorque: 1000
   rightFistCurlAngle: -120
   leftFistCurlAngle: 120
@@ -2957,13 +2957,13 @@ MonoBehaviour:
   weaponRadiusStart: 0.7
   weaponRadiusMiddle: 0.8
   weaponRadiusEnd: 0.7
-  twoHandedWeaponRadiusStart: 0.55
+  twoHandedWeaponRadiusStart: 0.65
   twoHandedWeaponRadiusMiddle: 0.8
-  twoHandedWeaponRadiusEnd: 0.4
+  twoHandedWeaponRadiusEnd: 0.6
   twoHandedForearmFlexionMax: 45
   swingSensitivity: 0.35
   swingAngleAcrossBody: 110
-  swingAngleOutward: 90
+  swingAngleOutward: 110
   maxVerticalSwingAngle: 80
   enableWeaponTwist: 1
   twistActivateThreshold: 0.75
@@ -5588,7 +5588,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!54 &686374551
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -5740,7 +5740,6 @@ MonoBehaviour:
   weakenedMaxForce: 150000
   normalSpring: 800000
   normalDamper: 3000
-  normalMaxForce: 150000
   showDebugInfo: 1
   showDebugVisuals: 1
 --- !u!65 &701933117
@@ -7738,7 +7737,7 @@ Rigidbody:
   m_UseGravity: 0
   m_IsKinematic: 0
   m_Interpolate: 1
-  m_Constraints: 14
+  m_Constraints: 0
   m_CollisionDetection: 2
 --- !u!65 &947258002
 BoxCollider:
@@ -18492,7 +18491,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1747412843
 Transform:
   m_ObjectHideFlags: 0
@@ -18642,7 +18641,6 @@ MonoBehaviour:
   weakenedMaxForce: 1e+9
   normalSpring: 800000
   normalDamper: 8000
-  normalMaxForce: 1e+9
   showDebugInfo: 1
   showDebugVisuals: 1
 --- !u!1 &1773611383 stripped

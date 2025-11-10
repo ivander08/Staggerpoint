@@ -9,19 +9,21 @@ public class Weapon : MonoBehaviour
     public Transform rightGripPoint;
     public Transform leftGripPoint;
 
-    // --- We will now store ConfigurableJoints instead of FixedJoints ---
     private ConfigurableJoint rightHandJoint;
     private ConfigurableJoint leftHandJoint;
 
-    // --- Public properties remain the same ---
     public bool IsEquipped => rightHandJoint != null || leftHandJoint != null;
     public bool IsHeldByRightHand => rightHandJoint != null;
     public bool IsHeldByLeftHand => leftHandJoint != null;
+
+    private Rigidbody weaponRB;
+
 
 
     private void Awake()
     {
         // rb = GetComponent<Rigidbody>();
+        weaponRB = GetComponent<Rigidbody>();
 
         // Error checking to help you find setup problems in the Editor
         if (rightGripPoint == null)
@@ -31,6 +33,15 @@ public class Weapon : MonoBehaviour
         if (isTwoHanded && leftGripPoint == null)
         {
             Debug.LogError($"Weapon '{name}' is marked as 'isTwoHanded' but is missing its 'leftGripPoint'.", this);
+        }
+    }
+
+    void FixedUpdate()
+    {
+        if (IsEquipped && weaponRB != null)
+        {
+            weaponRB.velocity = Vector3.ClampMagnitude(weaponRB.velocity, 10f);
+            weaponRB.angularVelocity = Vector3.ClampMagnitude(weaponRB.angularVelocity, 10f);
         }
     }
 
@@ -100,7 +111,7 @@ public class Weapon : MonoBehaviour
         {
             positionSpring = 800000f,    // Very strong - feels rigid
             positionDamper = 8000f,     // High damping - prevents wobble
-            maximumForce = 999999999f      // Safety cap
+            maximumForce = float.MaxValue      // Safety cap
         };
 
         joint.xDrive = strongDrive;
