@@ -34,8 +34,8 @@ public class WeaponImpactRecoil : MonoBehaviour
     [Tooltip("Damper strength during normal holding")]
     [SerializeField] private float normalDamper = 3000f;
 
-    [Tooltip("Max force during normal holding")]
-    [SerializeField] private float normalMaxForce = 150000f;
+    // [Tooltip("Max force during normal holding")]
+    // [SerializeField] private float normalMaxForce = 150000f;
 
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = true;
@@ -204,7 +204,7 @@ public class WeaponImpactRecoil : MonoBehaviour
         {
             positionSpring = normalSpring,
             positionDamper = normalDamper,
-            maximumForce = normalMaxForce
+            maximumForce = float.MaxValue
         };
 
         joint.xDrive = normalDrive;
