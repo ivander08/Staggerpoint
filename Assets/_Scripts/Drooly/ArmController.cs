@@ -113,6 +113,9 @@ public class ArmController : MonoBehaviour
     private bool _isLeftArmSwinging;
     private bool _isJabMode;
 
+    private Rigidbody _spineRB;
+    private Rigidbody _chestRB;
+
     private float _currentRightSwingYaw;
     private float _currentRightSwingPitch;
     private float _currentLeftSwingYaw;
@@ -143,7 +146,20 @@ public class ArmController : MonoBehaviour
         ValidateComponents();
         InitializeArms();
         CacheOriginalValues();
+        CacheUpperBodyRigidbodies();
     }
+
+    private void CacheUpperBodyRigidbodies()
+    {
+        Transform spine = _hipsTransform.Find("Spine");
+        Transform chest = spine?.Find("Chest");
+
+        if (spine != null) _spineRB = spine.GetComponent<Rigidbody>();
+        if (chest != null) _chestRB = chest.GetComponent<Rigidbody>();
+
+        Debug.Log($"[ArmController] Cached upper body RBs - Spine: {_spineRB != null}, Chest: {_chestRB != null}");
+    }
+
 
     void Update()
     {
@@ -350,6 +366,14 @@ public class ArmController : MonoBehaviour
             rightForearmJoint.targetRotation = _originalRightForearmRotation;
             if (rightWristJoint != null)
                 rightWristJoint.targetRotation = _originalRightWristRotation;
+
+            // ADDED: Reset left forearm too if in two-handed mode
+            if (isTwoHandedMode)
+            {
+                leftForearmJoint.targetRotation = _originalLeftForearmRotation;
+                if (leftWristJoint != null)
+                    leftWristJoint.targetRotation = _originalLeftWristRotation;
+            }
         }
         else
         {
@@ -439,7 +463,7 @@ public class ArmController : MonoBehaviour
             Vector3 toBodyDirection = rightHandToBody.normalized;
 
             // Move left hand toward body by the grip offset distance
-            leftHandIKTarget.position = rightHandIKTarget.position + toBodyDirection * (gripOffset.magnitude * 1.2f);
+            leftHandIKTarget.position = rightHandIKTarget.position + toBodyDirection * (gripOffset.magnitude * 0f);
         }
 
         leftHandIKTarget.rotation = rightHandIKTarget.rotation;
@@ -523,7 +547,7 @@ public class ArmController : MonoBehaviour
             swingProgress = (swingProgress - 0.5f) * 2f; // Convert to -1 to 1 range
 
             float flexionAngle = 0f;
-            float bendThreshold = 0.7f; // Hardcoded threshold
+            float bendThreshold = 0.85f; // Hardcoded threshold
 
             if (swingProgress >= bendThreshold) // 0.7 to 1.0: bend
             {
@@ -597,37 +621,36 @@ public class ArmController : MonoBehaviour
         {
             Quaternion originalWristRotation = isRightArm ? _originalRightWristRotation : _originalLeftWristRotation;
 
-            // if (holdingWeapon && isTwoHanded)
-            // {
-            //     // TWO-HANDED: Mirror wrist flexion using right arm's swing progress
-            //     float swingProgress = (_currentRightSwingYaw - minYaw) / (maxYaw - minYaw);
-            //     swingProgress = (swingProgress - 0.5f) * 2f; // Convert to -1 to 1 range
+            if (holdingWeapon && isTwoHanded)
+            {
+                // TWO-HANDED: Mirror wrist flexion using right arm's swing progress
+                float swingProgress = (_currentRightSwingYaw - minYaw) / (maxYaw - minYaw);
+                swingProgress = (swingProgress - 0.5f) * 2f; // Convert to -1 to 1 range
 
-            //     float wristThreshold = 0.7f; // Hardcoded threshold
-            //     float targetFlexionAngle = 0f;
+                float wristThreshold = 0.7f; // Hardcoded threshold
+                float targetFlexionAngle = 0f;
 
-            //     if (isRightArm)
-            //     {
-            //         // Right wrist: ulnar when swinging out (positive), radial when swinging in (negative)
-            //         if (swingProgress >= wristThreshold || swingProgress <= -wristThreshold)
-            //             targetFlexionAngle = rightWristUlnarFlexion;
-            //         else
-            //             targetFlexionAngle = rightWristRadialFlexion;
-            //     }
-            //     else
-            //     {
-            //         // Left wrist: MIRROR the right wrist's behavior
-            //         if (swingProgress >= wristThreshold || swingProgress <= -wristThreshold)
-            //             targetFlexionAngle = leftWristUlnarFlexion;
-            //         else
-            //             targetFlexionAngle = leftWristRadialFlexion;
-            //     }
+                if (isRightArm)
+                {
+                    // Right wrist: ulnar when swinging out (positive), radial when swinging in (negative)
+                    if (swingProgress >= wristThreshold || swingProgress <= -wristThreshold)
+                        targetFlexionAngle = rightWristUlnarFlexion;
+                    else
+                        targetFlexionAngle = rightWristRadialFlexion;
+                }
+                else
+                {
+                    // Left wrist: MIRROR the right wrist's behavior
+                    if (swingProgress >= wristThreshold || swingProgress <= -wristThreshold)
+                        targetFlexionAngle = leftWristUlnarFlexion;
+                    else
+                        targetFlexionAngle = leftWristRadialFlexion;
+                }
 
-            //     Quaternion flexion = Quaternion.Euler(0, targetFlexionAngle, 0);
-            //     wristJoint.targetRotation = originalWristRotation * flexion;
-            // }
-            // else 
-            if (!isTwoHanded)
+                Quaternion flexion = Quaternion.Euler(0, targetFlexionAngle, 0);
+                wristJoint.targetRotation = originalWristRotation * flexion;
+            }
+            else if (!isTwoHanded)
             {
                 // ONE-HANDED: Original wrist flexion logic
                 float swingProgress = (normalizedYaw - 0.5f) * 2f;
@@ -666,14 +689,18 @@ public class ArmController : MonoBehaviour
     {
         float forceMultiplier = isRightHand ? _currentRightFollowForce : _currentLeftFollowForce;
 
-        // ADDED: Reduce force for left hand in two-handed mode
         if (isTwoHandedMode && !isRightHand)
         {
-            forceMultiplier *= 0.3f; // Only 30% force for secondary hand
+            forceMultiplier *= 0.3f;
         }
 
         Vector3 positionDifference = handIKTarget.position - handRB.position;
-        handRB.AddForce(positionDifference * followForce * forceMultiplier, ForceMode.Force);
+        Vector3 appliedForce = positionDifference * followForce * forceMultiplier;
+
+        handRB.AddForce(appliedForce, ForceMode.Force);
+
+        // NEW: Apply counter-forces to torso to prevent being pulled
+        ApplyTorsoCounterForce(appliedForce);
 
         Quaternion rotationDifference = handIKTarget.rotation * Quaternion.Inverse(handRB.rotation);
         rotationDifference.ToAngleAxis(out float angleInDegrees, out Vector3 rotationAxis);
@@ -681,6 +708,32 @@ public class ArmController : MonoBehaviour
 
         Vector3 torque = rotationAxis.normalized * (angleInDegrees * Mathf.Deg2Rad * rotateTorque);
         handRB.AddTorque(torque * forceMultiplier, ForceMode.Force);
+    }
+
+    private void ApplyTorsoCounterForce(Vector3 armForce)
+    {
+        // Calculate horizontal component only (ignore vertical)
+        Vector3 horizontalForce = new Vector3(armForce.x, 0, armForce.z);
+
+        // Split counter-force between spine and chest
+        float torsoCounterMultiplier = 0.8f; // Adjust this value (0.3-0.7 range)
+
+        if (_spineRB != null)
+        {
+            _spineRB.AddForce(-horizontalForce * torsoCounterMultiplier * 0.5f, ForceMode.Force);
+        }
+
+        if (_chestRB != null)
+        {
+            _chestRB.AddForce(-horizontalForce * torsoCounterMultiplier * 0.5f, ForceMode.Force);
+        }
+
+        // Also apply counter-force to hips for extra stability
+        Rigidbody hipsRB = _hipsTransform.GetComponent<Rigidbody>();
+        if (hipsRB != null)
+        {
+            hipsRB.AddForce(-horizontalForce * torsoCounterMultiplier * 0.3f, ForceMode.Force);
+        }
     }
 
     private void ReTenseArm(List<ConfigurableJoint> joints, List<JointDrive> originalDrives)

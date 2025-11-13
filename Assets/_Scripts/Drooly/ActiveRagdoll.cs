@@ -115,6 +115,8 @@ public class ActiveRagdoll : MonoBehaviour
         CheckAirborne();
         UpdateStepGuidePosition();
 
+        ClampRagdollVelocities();
+
         // Handle stepping logic
         if (!_isStepping && !isAirborne)
         {
@@ -132,6 +134,31 @@ public class ActiveRagdoll : MonoBehaviour
         if (!isAirborne)
         {
             UpdateBalanceTarget();
+        }
+    }
+
+    private void ClampRagdollVelocities()
+    {
+        // Clamp main body (hips) - allow higher speeds for movement
+        if (hipsTransform != null)
+        {
+            Rigidbody hipsRB = hipsTransform.GetComponent<Rigidbody>();
+            if (hipsRB != null)
+            {
+                hipsRB.velocity = Vector3.ClampMagnitude(hipsRB.velocity, 10f);
+                hipsRB.angularVelocity = Vector3.ClampMagnitude(hipsRB.angularVelocity, 10f);
+            }
+        }
+
+        // Clamp all other ragdoll parts (more restrictive)
+        Rigidbody[] allRigidbodies = GetComponentsInChildren<Rigidbody>();
+        foreach (Rigidbody rb in allRigidbodies)
+        {
+            if (rb != null && rb.transform != hipsTransform && !rb.isKinematic && rb != balanceTargetBody)
+            {
+                rb.velocity = Vector3.ClampMagnitude(rb.velocity, 10f);
+                rb.angularVelocity = Vector3.ClampMagnitude(rb.angularVelocity, 10f);
+            }
         }
     }
 
